@@ -1,0 +1,51 @@
+# VerifyOS server —— monorepo 多阶段构建（pnpm workspace）
+# 构建上下文 = 仓库根目录：docker build -f Dockerfile.server .
+
+FROM node:22-alpine AS base
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate  # 与本地一致，避免 pnpm10 供应链政策误报
+WORKDIR /repo
+
+# ---------- 1) 依赖层（缓存友好：先拷 workspace 清单） ----------
+FROM base AS deps
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .npmrc ./
+COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+COPY packages/shared/package.json packages/shared/
+COPY packages/agent-core/package.json packages/agent-core/
+COPY packages/poc/package.json packages/poc/
+RUN pnpm install --frozen-lockfile --ignore-scripts || pnpm install --ignore-scripts
+
+# ---------- 2) 构建层：shared → agent-core → server ----------
+FROM base AS build
+COPY --from=deps /repo /repo
+COPY tsconfig.base.json ./
+COPY packages/shared packages/shared
+COPY packages/agent-core packages/agent-core
+COPY apps/server apps/server
+RUN pnpm --filter @verifyos/shared build \
+ && pnpm --filter @verifyos/agent-core build \
+ && pnpm --filter @verifyos/server build
+
+# ---------- 3) 部署层：pnpm deploy（workspace 官方部署——内部包依赖自动展平） ----------
+FROM build AS deploy
+RUN pnpm --filter @verifyos/server deploy --prod /deploy \
+ && cp -r /repo/packages/agent-core/fixtures /deploy/fixtures \
+ && mkdir -p /deploy/migrations \
+ && cp -r /repo/apps/server/migrations/* /deploy/migrations/
+
+# ---------- 4) 运行层 ----------
+# bookworm-slim：Playwright 官方支持 Debian 系（alpine 无法装浏览器系统依赖）
+FROM node:22-bookworm-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=deploy /deploy ./
+# fixtures（webhook stub 的演示站点；RunsService 以 cwd 相对定位 ../../packages/agent-core/fixtures，
+# 生产由 FIXTURE_DIR 环境变量指定）
+ENV FIXTURE_DIR=/app/fixtures/site
+# 安装 chromium + 系统依赖（容器内可真实执行爬取/Run/移动设备模拟）；构建代理：--build-arg HTTPS_PROXY=...
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+RUN npx playwright install --with-deps chromium
+
+EXPOSE 8080
+CMD ["node", "dist/main.js"]

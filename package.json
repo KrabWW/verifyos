@@ -1,0 +1,21 @@
+{
+  "name": "verifyos",
+  "private": true,
+  "version": "0.0.1",
+  "description": "VerifyOS · 中文 AI 测试平台（私有化部署）",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "check:events": "pnpm --filter @verifyos/shared run check:events",
+    "infra": "docker compose up -d",
+    "infra:down": "docker compose down"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.1.2+sha512.415a1cc25974731e75455c1468371be74c5aa5fb7621b50d4056d222451609f11412f23fd602e6169f1e060466641f798597e1be961a10688836a67b16569499"
+}

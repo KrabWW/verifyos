@@ -1,0 +1,30 @@
+{
+  "name": "@verifyos/cli",
+  "version": "0.0.1",
+  "private": true,
+  "description": "VerifyOS 命令行入口：init/login 及命令集骨架（run/report/explore/qa/ver/api/mcp/review 规划中）",
+  "type": "module",
+  "bin": {
+    "verifyos": "./dist/bin.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

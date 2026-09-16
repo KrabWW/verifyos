@@ -1,0 +1,50 @@
+{
+  "name": "@verifyos/api-test",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VerifyOS API 测试独立项目：AI 化接口测试（流量录制→测试生成、API inventory+覆盖率、spec→edge-case）。成熟后微前端合并进统一控制台。",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "record": "tsx src/cli/record.ts",
+    "gen": "tsx src/cli/generate.ts",
+    "verify:record": "tsx scripts/verify-record.ts",
+    "verify:record-to-test": "tsx scripts/verify-record-to-test.ts",
+    "verify:ai-assert": "tsx scripts/verify-ai-assert.ts",
+    "verify:nli": "tsx scripts/verify-nli.ts",
+    "verify:heal": "tsx scripts/verify-heal.ts",
+    "demo:classify": "tsx scripts/demo-classify.ts",
+    "test:mock-schema": "tsx scripts/test-mock-schema.ts",
+    "import:har": "tsx src/cli/import-har.ts",
+    "demo:inventory": "tsx src/inventory/demo.ts",
+    "demo:coverage": "tsx src/coverage/demo.ts",
+    "demo:spec-test": "tsx src/spec-test/demo.ts",
+    "demo:scenario": "tsx src/scenario/demo.ts",
+    "verify:ai-core": "tsx scripts/verify-ai-core.ts",
+    "verify:insight": "tsx scripts/verify-insight.ts",
+    "verify:doc-model": "tsx scripts/verify-doc-model.ts",
+    "verify:sse": "tsx scripts/verify-sse.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "yaml": "^2.9.0"
+  }
+}

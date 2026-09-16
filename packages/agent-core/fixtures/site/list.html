@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><title>员工列表 · 演示 CRM</title>
+  <script>if (!localStorage.getItem('session')) location.replace('login.html');</script>
+</head>
+<body>
+  <h1>员工列表</h1>
+  <nav><a href="list.html">列表</a> | <a href="about.html">关于</a></nav>
+  <table border="1">
+    <tr><th>姓名</th><th>编号</th><th>部门</th><th></th></tr>
+    <tr><td>张伟</td><td>ZS-001</td><td>销售部</td><td><a href="detail1.html">详情</a></td></tr>
+    <tr><td>李娜</td><td>LN-002</td><td>技术部</td><td><a href="detail2.html">详情</a></td></tr>
+  </table>
+  <button id="add">新增员工</button>
+</body>
+</html>

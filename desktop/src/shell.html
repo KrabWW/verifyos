@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VerifyOS Desktop</title>
+  <style>
+    :root {
+      --bg: #0f1115;
+      --panel: #171a21;
+      --border: #262b36;
+      --text: #e6e8ee;
+      --dim: #8b93a5;
+      --accent: #4f8cff;
+      --green: #34c48f;
+      --red: #e5534b;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .titlebar {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 14px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      user-select: none;
+    }
+    .titlebar .mark {
+      width: 18px; height: 18px;
+      border-radius: 5px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+    }
+    .titlebar .name { font-weight: 600; }
+    .titlebar .sub { color: var(--dim); font-size: 11px; margin-left: auto; }
+    .wrap { padding: 22px 24px; max-width: 560px; }
+    h1 { font-size: 18px; margin: 0 0 6px; }
+    .lead { color: var(--dim); margin: 0 0 20px; line-height: 1.7; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+    .card h2 { font-size: 13px; margin: 0 0 12px; color: var(--text); }
+    label { display: block; color: var(--dim); font-size: 11px; margin-bottom: 6px; }
+    input[type="password"], input[type="text"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      padding: 9px 11px;
+      font-family: var(--mono);
+      font-size: 12px;
+      outline: none;
+    }
+    input:focus { border-color: var(--accent); }
+    .row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    button {
+      border: 1px solid var(--border);
+      background: #1f2430;
+      color: var(--text);
+      border-radius: 7px;
+      padding: 8px 14px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    button:hover { border-color: var(--accent); }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+    button.danger { color: var(--red); }
+    .status { margin-top: 12px; font-size: 11px; color: var(--dim); }
+    .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+    .dot.on { background: var(--green); }
+    .dot.off { background: var(--red); }
+    .mono { font-family: var(--mono); }
+    .kv { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; color: var(--dim); }
+    .kv b { color: var(--text); font-weight: 500; word-break: break-all; text-align: right; }
+  </style>
+</head>
+<body>
+  <div class="titlebar">
+    <span class="mark">✓</span>
+    <span class="name">VerifyOS Desktop</span>
+    <span class="sub">最小桌面壳 PoC</span>
+  </div>
+
+  <div class="wrap">
+    <h1>本地登录 / Token 持久化</h1>
+    <p class="lead">
+      桌面壳加载 Web 控制台；此处提供最小本地能力：输入 token 并保存到本地文件
+      <span class="mono" id="tokenPath">（userData/token.json）</span>。
+    </p>
+
+    <div class="card">
+      <h2>Token</h2>
+      <label for="token">本地登录 token（保存到本地文件）</label>
+      <input id="token" type="password" placeholder="粘贴 token…" autocomplete="off" />
+      <div class="row">
+        <button class="primary" id="save">保存</button>
+        <button id="load">读取</button>
+        <button class="danger" id="clear">清除</button>
+      </div>
+      <div class="status" id="tokenStatus">尚未读取</div>
+    </div>
+
+    <div class="card">
+      <h2>Web 控制台</h2>
+      <div class="kv"><span>地址</span><b class="mono" id="webUrl">…</b></div>
+      <div class="kv"><span>平台</span><b id="platform">…</b></div>
+      <div class="row">
+        <button class="primary" id="open">打开 Web 控制台</button>
+      </div>
+      <div class="status"><span class="dot off" id="webDot"></span><span id="webStatus">未检测</span></div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const api = window.verifyosDesktop;
+
+    // 平台信息
+    if (api) $('platform').textContent = api.platform || 'unknown';
+
+    // Web 控制台地址
+    if (api && api.getWebUrl) {
+      api.getWebUrl().then((url) => {
+        $('webUrl').textContent = url;
+        // 简单探测可达性
+        fetch(url, { mode: 'no-cors' })
+          .then(() => setWeb(true))
+          .catch(() => setWeb(false));
+      });
+    }
+
+    function setWeb(on) {
+      $('webDot').className = 'dot ' + (on ? 'on' : 'off');
+      $('webStatus').textContent = on ? '可达' : '不可达（可点击上方按钮打开）';
+    }
+
+    // token 读写
+    function refreshStatus(text) {
+      $('tokenStatus').textContent = text;
+    }
+    if (api) {
+      $('save').addEventListener('click', async () => {
+        const v = $('token').value.trim();
+        if (!v) { refreshStatus('token 为空，未保存'); return; }
+        await api.saveToken(v);
+        $('token').value = '';
+        refreshStatus('已保存到本地文件');
+      });
+      $('load').addEventListener('click', async () => {
+        const t = await api.getToken();
+        if (t) { $('token').value = t; refreshStatus('已读取（' + t.length + ' 字符）'); }
+        else refreshStatus('本地无已保存 token');
+      });
+      $('clear').addEventListener('click', async () => {
+        await api.clearToken();
+        $('token').value = '';
+        refreshStatus('已清除本地 token');
+      });
+      $('open').addEventListener('click', () => api.openConsole());
+    } else {
+      refreshStatus('preload 未加载（verifyosDesktop API 不可用）');
+    }
+  </script>
+</body>
+</html>

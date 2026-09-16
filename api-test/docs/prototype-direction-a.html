@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark" data-accent="teal" data-page-node-id="8NVAlmy9PZzZ36fAQE7ndD">
+<head data-page-node-id="o7gzsoFjOj1d1SUUxy1HQU">
+<meta charset="UTF-8" data-page-node-id="ZadpBcaZXfxnY6aULfCXHy">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="IDuoE5LsZwCYXCVDQX715m">
+<title>VerifyOS API Test — 方向 A · 工作流驱动</title>
+<style>
+/* ============ 设计 token（从 Hoppscotch theming.ts 提炼 + 自定义） ============ */
+:root {
+  --bg0: #0c0c0f; --bg1: #131316; --bg2: #1a1a1e; --bg3: #222228;
+  --line: #2a2a32; --line2: #35353f;
+  --txt: #e4e4e9; --txt2: #a1a1ac; --txt3: #71717c; --txt4: #52525b;
+  --acc: #10b981; --acc-dim: rgba(16,185,129,.12); --acc-line: rgba(16,185,129,.35);
+  --get: #22c55e; --post: #3b82f6; --put: #f59e0b; --del: #ef4444; --patch: #a855f7;
+  --mono: 'SF Mono','JetBrains Mono',Menlo,monospace;
+  --sans: -apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+}
+[data-dir="rtl"] { direction: rtl; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg0); color: var(--txt); font: 13px/1.6 var(--sans); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+button { cursor: pointer; font: inherit; color: inherit; background: none; border: none; }
+input, textarea { font: inherit; color: var(--txt); background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; outline: none; }
+input:focus, textarea:focus { border-color: var(--acc-line); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ===== 顶栏 ===== */
+.top { height: 46px; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: var(--bg1); border-bottom: 1px solid var(--line); flex-shrink:0; }
+.logo { font-weight: 600; color: var(--acc); font-size: 14px; letter-spacing: .3px; }
+.logo span { color: var(--txt3); font-weight: 400; font-size: 11px; margin-left: 6px; }
+.spacer { flex: 1; }
+.env-pill { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 2px 12px; font-size: 11.5px; color: var(--txt2); }
+.env-pill.prod { border-color: rgba(239,68,68,.4); color: #f87171; }
+.model-pill { background: var(--bg2); border: 1px solid var(--line); border-radius: 14px; padding: 2px 12px; font-size: 11.5px; color: var(--txt2); }
+
+/* ===== 主布局 ===== */
+.app { flex: 1; display: flex; min-height: 0; }
+
+/* ===== 左侧导航（Hoppscotch default.vue 窄图标式） ===== */
+.sidenav { width: 48px; background: var(--bg1); border-right: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; padding: 10px 0; gap: 2px; flex-shrink: 0; }
+.snav { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 8px; color: var(--txt3); transition: all .15s; position: relative; }
+.snav:hover { background: var(--bg3); color: var(--txt); }
+.snav.on { background: var(--acc-dim); color: var(--acc); }
+.snav.on::before { content:''; position:absolute; left:-6px; top:8px; bottom:8px; width:2px; background:var(--acc); border-radius:1px; }
+.snav svg { width: 17px; height: 17px; }
+.snav-sep { width: 24px; height: 1px; background: var(--line); margin: 6px 0; }
+
+/* ===== 左栏（资产树 / Postcat api-group-tree 形态） ===== */
+.left-pane { width: 228px; background: var(--bg1); border-right: 1px solid var(--line); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+.left-head { padding: 12px 12px 6px; }
+.left-head .search { display: flex; align-items: center; gap: 6px; background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; }
+.left-head .search svg { width: 13px; height: 13px; color: var(--txt3); flex-shrink: 0; }
+.left-head .search input { flex: 1; border: none; background: none; font-size: 12px; color: var(--txt); padding: 0; }
+.tree { flex: 1; overflow-y: auto; padding: 4px 6px 12px; }
+.tree-grp { display: flex; align-items: center; gap: 5px; padding: 6px 4px 3px; font-size: 10.5px; color: var(--txt3); letter-spacing: .5px; }
+.tree-grp b { color: var(--txt2); font-weight: 500; font-size: 11px; }
+.tree-grp .cov-tag { margin-left: auto; font-size: 9.5px; color: var(--acc); background: var(--acc-dim); padding: 0 5px; border-radius: 8px; }
+.tree-api { display: flex; align-items: center; gap: 5px; padding: 4px 6px; border-radius: 5px; cursor: pointer; font-family: var(--mono); font-size: 11px; color: var(--txt2); transition: background .12s; }
+.tree-api:hover { background: var(--bg2); }
+.tree-api.sel { background: var(--acc-dim); color: var(--txt); }
+.tree-api .m { font-size: 9px; width: 32px; font-weight: 600; flex-shrink:0; }
+.m.GET { color: var(--get); } .m.POST { color: var(--post); } .m.PUT { color: var(--put); } .m.DEL { color: var(--del); }
+.tree-api .u { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tree-api .cd { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 7px; }
+.cd.full { background: var(--get); color: #0c0c0f; }
+.cd.part { background: transparent; border: 1.5px solid #eab308; color: #eab308; font-size: 6px; }
+.cd.none { background: var(--line); color: var(--txt3); }
+.tree-api .gen { opacity: 0; color: var(--acc); font-size: 10px; flex-shrink: 0; transition: opacity .12s; }
+.tree-api:hover .gen { opacity: 1; }
+
+/* ===== 中栏（工作区，tab + 内容） ===== */
+.mid { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg0); }
+.mid-tabs { display: flex; align-items: center; background: var(--bg1); border-bottom: 1px solid var(--line); padding: 0 8px; flex-shrink: 0; min-height: 38px; }
+.mtab { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 12px; color: var(--txt3); border-right: 1px solid var(--line); cursor: pointer; transition: background .12s; }
+.mtab:hover { background: var(--bg2); }
+.mtab.on { color: var(--txt); background: var(--bg0); border-bottom: 2px solid var(--acc); }
+.mtab .cls { font-size: 10px; opacity: 0; margin-left: 4px; }
+.mtab:hover .cls { opacity: .6; }
+.mtab .tg { font-size: 9px; padding: 0 5px; border-radius: 8px; font-weight: 600; }
+.tg.rec { background: rgba(16,185,129,.15); color: var(--acc); }
+.tg.ai { background: rgba(168,85,247,.15); color: var(--patch); }
+.mid-add { color: var(--txt3); font-size: 16px; padding: 6px 10px; }
+.mid-add:hover { color: var(--txt); }
+
+.mid-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+/* 请求编辑器 */
+.url-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.mth-sel { background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--get); width: 82px; text-align: center; }
+.url-input { flex: 1; display: flex; align-items: center; background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 0 12px; font-family: var(--mono); font-size: 12.5px; height: 36px; color: var(--txt); }
+.url-input .v { color: var(--acc); }
+.send-btn { background: var(--acc); color: #0c0c0f; font-weight: 600; border-radius: 6px; padding: 7px 18px; font-size: 12.5px; }
+.curl-btn { color: var(--txt3); font-size: 11px; border: 1px dashed var(--line2); border-radius: 5px; padding: 4px 10px; }
+
+.req-tabs { display: flex; gap: 1px; margin-bottom: 12px; }
+.rtab { padding: 5px 14px; font-size: 11.5px; color: var(--txt3); background: var(--bg2); border: 1px solid var(--line); border-radius: 6px 6px 0 0; cursor: pointer; position: relative; }
+.rtab.on { color: var(--txt); background: var(--bg3); border-bottom-color: var(--bg3); }
+.rtab .bdg { font-size: 9px; padding: 0 5px; border-radius: 8px; margin-left: 3px; font-weight: 600; }
+.bdg-warn { background: rgba(234,179,8,.15); color: #eab308; }
+.bdg-acc { background: var(--acc-dim); color: var(--acc); }
+
+/* 响应区 */
+.resp-section { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.resp-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.resp-badge { font-family: var(--mono); font-size: 15px; font-weight: 700; padding: 2px 10px; border-radius: 6px; }
+.resp-badge.ok { background: rgba(34,197,94,.15); color: var(--get); }
+.resp-meta { font-size: 11px; color: var(--txt3); }
+.resp-json { background: var(--bg1); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-family: var(--mono); font-size: 11.5px; line-height: 1.8; overflow-x: auto; }
+.j-key { color: #7dd3fc; } .j-str { color: #86efac; } .j-num { color: #c4b5fd; } .j-bool { color: #fdba74; } .j-null { color: var(--txt4); } .j-punc { color: var(--txt3); }
+.save-case { display: inline-flex; align-items: center; gap: 5px; color: var(--acc); font-size: 11px; border: 1px solid var(--acc-line); border-radius: 5px; padding: 3px 10px; margin-top: 8px; }
+.save-case:hover { background: var(--acc-dim); }
+
+/* AI 内联按钮 */
+.ai-inline { display: inline-flex; align-items: center; gap: 4px; color: var(--patch); font-size: 11px; border: 1px solid rgba(168,85,247,.3); border-radius: 5px; padding: 3px 10px; }
+.ai-inline:hover { background: rgba(168,85,247,.1); }
+.ai-inline svg { width: 12px; height: 12px; }
+
+/* ===== AI 抽屉（右侧滑出，MeterSphere #23 形态） ===== */
+.drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 40; display: none; }
+.drawer-overlay.show { display: block; }
+.ai-drawer { position: fixed; top: 0; right: -480px; width: 480px; height: 100vh; background: var(--bg1); border-left: 1px solid var(--acc-line); z-index: 41; transition: right .25s cubic-bezier(.4,0,.2,1); display: flex; flex-direction: column; }
+.ai-drawer.show { right: 0; }
+.ai-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.ai-head .icon { color: var(--acc); }
+.ai-head .title { font-weight: 600; font-size: 14px; }
+.ai-head .model { margin-left: auto; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 2px 10px; font-size: 11px; color: var(--txt2); }
+.ai-head .close { color: var(--txt3); font-size: 16px; }
+.ai-ctx { padding: 10px 16px; background: var(--bg2); border-bottom: 1px solid var(--line); font-size: 11.5px; color: var(--txt2); }
+.ai-ctx b { color: var(--txt); font-weight: 500; }
+.ai-ctx .ms { margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap; }
+.ms-chip { font-size: 10px; border: 1px solid var(--line2); border-radius: 10px; padding: 1px 8px; color: var(--txt3); cursor: pointer; transition: all .12s; }
+.ms-chip.on { border-color: var(--acc-line); background: var(--acc-dim); color: var(--acc); }
+.ai-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+.msg-u { margin-left: auto; max-width: 88%; background: var(--bg3); border-radius: 10px 10px 2px 10px; padding: 8px 12px; font-size: 12.5px; margin-bottom: 14px; color: var(--txt); }
+.msg-ai { max-width: 100%; margin-bottom: 14px; font-size: 12.5px; line-height: 1.7; color: var(--txt); }
+.msg-ai .cap { color: var(--txt3); font-size: 11px; margin-bottom: 8px; }
+.gcard { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; display: flex; gap: 8px; align-items: flex-start; cursor: pointer; transition: border-color .12s; }
+.gcard:hover { border-color: var(--acc-line); }
+.gcard.picked { border-color: var(--acc); background: var(--acc-dim); }
+.gcard .ck { width: 15px; height: 15px; border: 1.5px solid var(--txt3); border-radius: 4px; flex-shrink: 0; margin-top: 2px; position: relative; }
+.gcard.picked .ck { border-color: var(--acc); background: var(--acc); }
+.gcard.picked .ck::after { content: '✓'; position: absolute; inset: 0; color: #0c0c0f; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+.gcard .bd { flex: 1; }
+.gcard .tt { font-size: 12px; color: var(--txt); }
+.gcard .mt { font-family: var(--mono); font-size: 10px; color: var(--txt3); margin-top: 2px; }
+.gcard .how { font-size: 9px; color: var(--patch); border: 1px solid rgba(168,85,247,.3); border-radius: 8px; padding: 0 6px; flex-shrink: 0; }
+.gcard.synced { opacity: .5; pointer-events: none; }
+.gcard.synced .sync-tag { font-size: 9px; color: var(--acc); }
+.ai-input-row { border-top: 1px solid var(--line); padding: 12px 16px; display: flex; gap: 8px; }
+.ai-in { flex: 1; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: var(--txt3); }
+.ai-go { background: var(--acc); color: #0c0c0f; font-weight: 600; border-radius: 8px; padding: 8px 16px; }
+</style>
+</head>
+<body data-page-node-id="Nr37xaXISLykeRJkHZ4XLA">
+
+<!-- 顶栏 -->
+<div class="top" data-page-node-id="gQyRzUUa3P4uGUNgnjeXZX">
+  <div class="logo" data-page-node-id="AEeAFeAIWq2KL7nXH96W8N">◐ api-test <span data-page-node-id="SLZ3HgdYbcbYjdmSQbklwz">· VerifyOS</span></div>
+  <div class="spacer" data-page-node-id="ukbiD9hEcxVtD4KDJwOfB5"></div>
+  <button class="env-pill" data-page-node-id="RF1DgCChlv9OyLDmQRKE0p">dev ▾</button>
+  <button class="model-pill" data-page-node-id="R5xQDEAQBYfkqUl9qpVbBv">glm-4.6 ▾</button>
+</div>
+
+<div class="app" data-page-node-id="bbQIofiSHOROdBdKMUHWyE">
+  <!-- 窄图标导航（Hoppscotch default.vue） -->
+  <nav class="sidenav" data-page-node-id="jsl02pYiinedZkwFvXnwLe">
+    <button class="snav" title="API" data-page-node-id="vEiTZN02HF4qYS19FzzrFN"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="n7qNfBXzc670citLXDpKRM"><path d="M4 6h16M4 12h16M4 18h7" data-page-node-id="L2YjmXrS2yIIYXp8ZY6mWB"/></svg></button>
+    <button class="snav on" title="用例" data-page-node-id="UqLsjUvJtzwe4bBNmU6omS"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="EDcNfqR1rXhga0SzCv68NL"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" data-page-node-id="twYlrI6OKfG7DxwnyIiuId"/></svg></button>
+    <button class="snav" title="覆盖率" data-page-node-id="mM0SZjamIk6QVti8mJ0aec"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="XmtQFW8rztoK55tAp03LYF"><circle cx="12" cy="12" r="10" data-page-node-id="ErkDnSpJ7GhGu9FTzH6Iiv"/><path d="M12 6v6l4 2" data-page-node-id="bJBeLJiDom7922JqU6J4mF"/></svg></button>
+    <button class="snav" title="场景" data-page-node-id="9xGsqLBn6csxmusnjYHhPM"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="LavZW8WdhSCJYsodzEiBFt"><path d="M13 10V3L4 14h7v7l9-11h-7z" data-page-node-id="F2HfsgJJLrR8BuuZfVkDtA"/></svg></button>
+    <div class="snav-sep" data-page-node-id="Wudi4QJSCGNakH9CkvWPnK"></div>
+    <button class="snav" title="报告" data-page-node-id="K9In1ahCiOj7St9lDtVuxP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="36Ss3Vg5EfAJzKE35ZvcWH"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v14a2 2 0 01-2 2z" data-page-node-id="veLEXpEcfNrDU3xP4JTfSN"/></svg></button>
+    <button class="snav" title="设置" data-page-node-id="Pc1Dh8jJuKbWPKKESMBAlT"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="Boz2XVVGEytEt3nGuzjnjx"><circle cx="12" cy="12" r="3" data-page-node-id="FUuLFnoQElsozZT9PndjWD"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.58 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" data-page-node-id="v57UyRCpJQSWSfAmM4h5W9"/></svg></button>
+  </nav>
+
+  <!-- 左栏资产树（Postcat api-group-tree 形态） -->
+  <div class="left-pane" data-page-node-id="uWDsTYzGbcsq17bi5DjdF2">
+    <div class="left-head" data-page-node-id="dDRwgZ9muFmNm2iIz1BCti">
+      <div class="search" data-page-node-id="wjAE2JivztSq4jseAABxGQ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" data-page-node-id="MJETfPAmWVEWqMF7CFsGhv"><circle cx="11" cy="11" r="8" data-page-node-id="xevmyld5OueZcIhkQ58YTw"/><path d="M21 21l-4.35-4.35" data-page-node-id="FNx464mHH437aXjM7v0ttz"/></svg>
+        <input placeholder="搜索 API / 场景" data-page-node-id="nZHU4snFOdzq2csenxnHB5">
+      </div>
+    </div>
+    <div class="tree" data-page-node-id="KEyOB2My9JXrHgFbVh7nfP">
+      <div class="tree-grp" data-page-node-id="kKV3BFc5nydMaMthoE839x"><b data-page-node-id="AvXBfqZ48OLtlnm0xUoFGC">USERS</b><span class="cov-tag" data-page-node-id="Y9X7TeLdWONVOn5IlcM9AA">4/5 覆盖</span></div>
+      <div class="tree-api" data-page-node-id="A9FOb8FXqvyhCOEeOSLt8Z"><span class="m GET" data-page-node-id="5TKIak2ik3Wk9ECwKox2wQ">GET</span><span class="u" data-page-node-id="viZGCLcCkApsATgKTZzxHD">/users</span><span class="cd full" data-page-node-id="U4GI7tksr1pWxj3lhpr1PB">✓</span><span class="gen" data-page-node-id="YaZxTxLwxkHZyegf55iYkz">✦ 生成</span></div>
+      <div class="tree-api sel" data-page-node-id="DFerWZgPo6W7782QiD9Vm2"><span class="m GET" data-page-node-id="STGD4o8yTSXirwiRL5ZlDP">GET</span><span class="u" data-page-node-id="L559e7pypV6uKJiScMRb9E">/users/:id</span><span class="cd part" data-page-node-id="NCj6hE4KVI6FY7yZFYm0fh">◐</span><span class="gen" data-page-node-id="esZjkn0qoIbDffzbxAsPKU">✦ 生成</span></div>
+      <div class="tree-api" data-page-node-id="SEKeI1ebJhdvB199J8v3WE"><span class="m POST" data-page-node-id="EIyfZPGa7kbkEegx49skri">POST</span><span class="u" data-page-node-id="mLDNw67NyNa1toINepJ20l">/users</span><span class="cd none" data-page-node-id="gKRex62a6nTBWpGFOzpuQd">—</span><span class="gen" data-page-node-id="J1UvLda5X58Zmqy3BTECTO">✦ 生成</span></div>
+      <div class="tree-api" data-page-node-id="JqzQchkg0FW4ven7WhXgCC"><span class="m PUT" data-page-node-id="Ci1rzhUTreI3RJeVgl9vIL">PUT</span><span class="u" data-page-node-id="ghcvNI19uV4c2pWopHkHjh">/users/:id</span><span class="cd part" data-page-node-id="Y7ZGBsLrUfE6xXCQSKrc07">◐</span><span class="gen" data-page-node-id="4bB7drIxAnaXDlQfO3zWP5">✦ 生成</span></div>
+      <div class="tree-api" data-page-node-id="J4X4XtfN9hdDs7q2hVxw9w"><span class="m DEL" data-page-node-id="XBtFjgbbyF0TJKAZ7D952A">DEL</span><span class="u" data-page-node-id="gtU1Rzy6TTBmQSMJLemyIB">/users/:id</span><span class="cd full" data-page-node-id="pb68zp06rdTgA0ieH2NirT">✓</span><span class="gen" data-page-node-id="x6ZGET0QGrUMEs5NOxDDt2">✦ 生成</span></div>
+      <div class="tree-grp" data-page-node-id="OUvUlaKamABcwF1ArqPVB1"><b data-page-node-id="Z7yL9FSG9PlawTElBsluKt">AUTH</b><span class="cov-tag" data-page-node-id="dD54YlmGipa8Ivx9C5Ghbv">1/1</span></div>
+      <div class="tree-api" data-page-node-id="2KedPglkL5O7gnTsKcvQEm"><span class="m POST" data-page-node-id="oYh4GmgjTxAGgRc9CfjtQk">POST</span><span class="u" data-page-node-id="GB7CXeIf8SIqsBH9hOEy4O">/login</span><span class="cd full" data-page-node-id="pwRg4P5FbMlzkw0FVw6C7E">✓</span><span class="gen" data-page-node-id="NcqzGKE7s6chvsMyOXIeXA">✦ 生成</span></div>
+      <div class="tree-grp" data-page-node-id="h7syusGBDDdtC3BddifeA1"><b data-page-node-id="izjY9ivSyrrw0RPygDod0h">ORDERS</b><span class="cov-tag" style="color:#f87171;background:rgba(239,68,68,.1)" data-page-node-id="FtH5Xa9WYTG47RiwHaV09h">0/4</span></div>
+      <div class="tree-api" data-page-node-id="VpEuIo9Vi6nRkBZpITHvqJ"><span class="m POST" data-page-node-id="VQseb3R5tZiagH38OXSGOx">POST</span><span class="u" data-page-node-id="F7oaZImf53jLZCOgi2smiK">/orders</span><span class="cd none" data-page-node-id="ZnY2oYgD1zPkQPffK67sM6">—</span><span class="gen" data-page-node-id="6dD57oS1vU8T5Lvt3sUAoh">✦ 生成</span></div>
+      <div class="tree-api" data-page-node-id="r7o8ejSJMolg6P2GHAUa1F"><span class="m GET" data-page-node-id="cQ4B1k8p8oJoCiZVa2vQZ5">GET</span><span class="u" data-page-node-id="6ZhitQle2imfGT5FXPApR5">/orders/:id</span><span class="cd none" data-page-node-id="21DTRsaLE2KzGfLYZIf8li">—</span><span class="gen" data-page-node-id="c2XEpPCBw4qEDN30ureUCj">✦ 生成</span></div>
+    </div>
+  </div>
+
+  <!-- 中栏：请求编辑器 + 响应 -->
+  <div class="mid" data-page-node-id="E8colsaBewANUiZIg6Uua9">
+    <div class="mid-tabs" data-page-node-id="U5lVlHOsZFVddK08zrfHF5">
+      <div class="mtab on" data-page-node-id="ecQbNqcDIKhRTMAdmZHsH5">GET /users/:id <span class="cls" data-page-node-id="TjD9FGNzgSNuWDBqMETpZx">✕</span></div>
+      <div class="mtab" data-page-node-id="TqayeuqODiKzJPo6TXGHan">POST /login <span class="tg rec" data-page-node-id="ujgVXvrfaw5eGKiScMWZV9">REC</span> <span class="cls" data-page-node-id="jPWibFlrW3nsdK4z5ynKMQ">✕</span></div>
+      <div class="mtab" data-page-node-id="of5Xx36lteCCGeTgqCejjS">下单流程（场景） <span class="tg ai" data-page-node-id="IhlvkrHFv36PyCEt2BQXU9">AI</span> <span class="cls" data-page-node-id="YZkmqOmNkhT3B9ol633wKE">✕</span></div>
+      <div class="mid-add" data-page-node-id="UrvBWmY360zbvlN3V5Wb2t">＋</div>
+    </div>
+    <div class="mid-body" data-page-node-id="Ny8Y6AZJP5YOXMi718HEbv">
+      <div class="url-row" data-page-node-id="YCCtBVTOOtRdYy8z3YrvX2">
+        <div class="mth-sel" data-page-node-id="kP66hKDuHWpvjNsCJU9aom">GET</div>
+        <div class="url-input" data-page-node-id="KHpG9LD0BwkwuD8SAVgdHz"><span class="v" data-page-node-id="l5icdk0Vf17HMciwQHuxqR">{{base}}</span>/users/:id</div>
+        <button class="send-btn" data-page-node-id="ufFWcMeeABzENhv8IxBICp">发送</button>
+        <button class="curl-btn" data-page-node-id="hFcpH6pczDp39T5U1LxuQB">粘贴 curl ↘</button>
+      </div>
+      <div class="req-tabs" data-page-node-id="gkUGAOUNkfFWaIzj0Anq51">
+        <div class="rtab" data-page-node-id="qFitGvMvA093B0JoZD7Lmz">Params <span class="bdg" style="background:var(--acc-dim);color:var(--acc)" data-page-node-id="NXhhmGLCDqNAQy82ZhA4fN">1</span></div>
+        <div class="rtab on" data-page-node-id="DWy6rI2AH97qUqFVtnFyDM">Body</div>
+        <div class="rtab" data-page-node-id="nDAm2SzZNgxcRg3GmQRPjm">Headers <span class="bdg" style="background:var(--bg3);color:var(--txt3)" data-page-node-id="Uqg0g4Mj5e8DW54uW8GbIz">2</span></div>
+        <div class="rtab" data-page-node-id="Gyky5QkBKV5S4M5UDY6NfQ">Auth</div>
+        <div class="rtab on" data-page-node-id="Sf3YO8RQA0TakhgGx6aOle">断言 <span class="bdg bdg-warn" data-page-node-id="ouw0s1luHcGmJ2ePDBolJE">3</span></div>
+        <div class="rtab" data-page-node-id="Qw96tsc4XPiIKOoykX2kxq">前置</div>
+        <div class="rtab" data-page-node-id="sdDy27Yl4qsyYuO5pvJNx7">文档</div>
+      </div>
+      <div class="resp-section" data-page-node-id="LFBfAcllNBBqZJxGnwdaJk">
+        <div class="resp-head" data-page-node-id="SzzS73SE9FAo24jlpWXBcF">
+          <span class="resp-badge ok" data-page-node-id="PHT8z2HN53bHvYR3ulgYMP">200</span>
+          <span class="resp-meta" data-page-node-id="pyZxarAfYkFWFfqFLDMD9M">186 ms · 1.2 KB · application/json</span>
+          <div style="margin-left:auto; display:flex; gap:6px;" data-page-node-id="4QFCSKtqyCcaYXLnoYowWC">
+            <button class="ai-inline" onclick="alert('从响应 AI 生成 schema 级断言（Hoppscotch 断言生成）')" data-page-node-id="AAEeG9aQKBHKgvC1TG6HsL"><svg viewBox="0 0 24 24" fill="currentColor" data-page-node-id="GeuNScStpsMcl8k3eHkevH"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.8 5.6 21.2 8 14 2 9.2h7.6z" data-page-node-id="aEKrAG2GzpLwPOqLtah3ok"/></svg> AI 生成断言</button>
+            <button class="save-case" data-page-node-id="uEXZgpoOdNW3G4emRVqdaJ">⌘S 存为用例</button>
+          </div>
+        </div>
+        <div class="resp-json" data-page-node-id="lG5BKjTZ65NIkij0t2yEXH">
+{<br data-page-node-id="rcB6QojXezvcCakFULGBGu">
+&nbsp;&nbsp;<span class="j-key" data-page-node-id="8SSnBuq9b5tHygewQAmM1H">"id"</span><span class="j-punc" data-page-node-id="DX678SZp7Id3vM0HmVa4RZ">:</span> <span class="j-num" data-page-node-id="NpbKAGJ4VxYIQaALPjcuO7">1001</span><span class="j-punc" data-page-node-id="5rm2IMMhGU7lvqRJhojEPG">,</span><br data-page-node-id="uGX0mUcdvZSCoaMKKamDAf">
+&nbsp;&nbsp;<span class="j-key" data-page-node-id="RGhSomHNskCQQCPf8UlewX">"name"</span><span class="j-punc" data-page-node-id="fY6YRN5Nsllpg4DFDEkDhG">:</span> <span class="j-str" data-page-node-id="dFAD0ZkYXxg8F52iG16yZp">"Alice"</span><span class="j-punc" data-page-node-id="Luyl8XvrAmZt1IC02bmmgZ">,</span><br data-page-node-id="2r1wF8QCrY8adhDAKjxxgu">
+&nbsp;&nbsp;<span class="j-key" data-page-node-id="7SfdqALE71WTaqHnuGBXn6">"email"</span><span class="j-punc" data-page-node-id="sV37TO9BUj5VOj6Qe2qCrw">:</span> <span class="j-str" data-page-node-id="7ErxKoyE1E4rGH9AISKswc">"alice@example.com"</span><span class="j-punc" data-page-node-id="dQszh8rYSNGUkFHqxQiwcA">,</span><br data-page-node-id="j4wPj5cot9MNd926nmEQVH">
+&nbsp;&nbsp;<span class="j-key" data-page-node-id="sjub14M2u5epwu8bgBMEdz">"isActive"</span><span class="j-punc" data-page-node-id="A1BkEg5NedpuDaAkOf3vJ8">:</span> <span class="j-bool" data-page-node-id="1adgbAS1nps4S3Ch604bRQ">true</span><span class="j-punc" data-page-node-id="C6EPK8qyuLjOo5TjSG1OKY">,</span><br data-page-node-id="Ag8rU0lcv1rqWiujOMt5d3">
+&nbsp;&nbsp;<span class="j-key" data-page-node-id="6SC4EHQ3b3jhKJbjwoRUh7">"orders"</span><span class="j-punc" data-page-node-id="QyW0CSfJe4syOgVGovQeWm">:</span> <span class="j-punc" data-page-node-id="BPoibv3AD67qGByd0QKyII">[</span><span class="j-num" data-page-node-id="TfYWQ6T2tlIcGy0jOLy95v">3</span><span class="j-punc" data-page-node-id="muWvIPiiLs51g0xGlJHldl">]</span><br data-page-node-id="wONRLqcEwEq8AYFD57Z4Da">
+}
+        </div>
+        <button class="save-case" data-page-node-id="ko6XvIoS7OMaIiTHCZsR9b">⌘S 存为用例（调试 → 用例，Postcat Save as API 交互）</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 右栏：上下文面板 -->
+  <div style="width:220px; background:var(--bg1); border-left:1px solid var(--line); padding:14px; flex-shrink:0; font-size:11.5px; color:var(--txt2);" data-page-node-id="tL1N4m6HG7On36I8tsU6aM">
+    <div style="color:var(--txt3); font-size:10px; letter-spacing:.5px; margin-bottom:8px;" data-page-node-id="2EvgsTzJfKoDC99XotWMmD">上下文</div>
+    <div style="font-family:var(--mono); font-size:10.5px; color:var(--txt2); background:var(--bg2); border-radius:6px; padding:8px 10px; line-height:1.9;" data-page-node-id="4RiVCs5VFg0KjH2Yau4KiH">
+      <div style="color:var(--acc);" data-page-node-id="wilwWkg53xVdIdgK73DrBr">GET {{base}}/users/:id</div>
+      <div data-page-node-id="ZYyAb6dL1K6Tso9PdXF3gy">auth: Bearer {{token}}</div>
+      <div data-page-node-id="rZ9VEZdcxAtkPjuCzODwPP">断言: 3 条（1 fail）</div>
+      <div data-page-node-id="LT7Bqv6OahMkVMQpSgoNFr">覆盖: <span style="color:#eab308;" data-page-node-id="NwoLlgvvMwXuRxCaZ3J5ZR">部分</span></div>
+    </div>
+    <div style="color:var(--txt3); font-size:10px; letter-spacing:.5px; margin:14px 0 6px;" data-page-node-id="A88KSWDPtNUBnc3f7TGFHw">AI 能力</div>
+    <button class="ai-inline" style="width:100%; margin-bottom:6px;" data-page-node-id="vmspi0SFqNUQrnCmPXXllE"><svg viewBox="0 0 24 24" fill="currentColor" data-page-node-id="jjPG5jo1HRmxnYMRMiu2iw"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.8 5.6 21.2 8 14 2 9.2h7.6z" data-page-node-id="JJcz1j89ZFhTianamoxyDU"/></svg> 从录制生成用例</button>
+    <button class="ai-inline" style="width:100%; margin-bottom:6px;" data-page-node-id="9cpZRnaiOXj5LnGYgV6D0c"><svg viewBox="0 0 24 24" fill="currentColor" data-page-node-id="BXLY0SwUH8VoBAiuMcmjmq"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.8 5.6 21.2 8 14 2 9.2h7.6z" data-page-node-id="ksBQzWUFrgnqSw7X2Dk6Ur"/></svg> 生成 edge-case</button>
+    <button class="ai-inline" style="width:100%;" data-page-node-id="XGfZ0hRyh3hselAvsjBJgT"><svg viewBox="0 0 24 24" fill="currentColor" data-page-node-id="zxVigTFLDqTy65atYBsGNt"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.8 5.6 21.2 8 14 2 9.2h7.6z" data-page-node-id="N40OZdssRGjxEJ2CMX5ciH"/></svg> AI 断言诊断</button>
+    <div style="color:var(--txt4); font-size:9.5px; margin-top:14px; line-height:1.7;" data-page-node-id="B625821ISTv7e2Hq7xk3fy">右栏 AI 面板：插件化注册<br data-page-node-id="I8D3OMLECTMVJ5OaUYm3UW">（未来 Cordis 内核，协议不变）</div>
+  </div>
+</div>
+
+<!-- AI 全局抽屉（右下角触发） -->
+<div class="drawer-overlay" id="ov" data-page-node-id="imkomNLTmqGzHyiXFpHZXj"></div>
+<div class="ai-drawer" id="dr" data-page-node-id="T1CmO3Wz9zNv8dZcE0DgPa">
+  <div class="ai-head" data-page-node-id="IAohSoBuotFUAZYIS89WCT">
+    <span class="icon" data-page-node-id="ZGeo4ZGrBopBKeLAtVPc7X"><svg viewBox="0 0 24 24" width="16" fill="currentColor" data-page-node-id="M5CLSgm1YOGuppC3AnB6Dy"><path d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.8 5.6 21.2 8 14 2 9.2h7.6z" data-page-node-id="atfGXFI6a0eCwDBT47Qg2u"/></svg></span>
+    <span class="title" data-page-node-id="gE5VnR85QsCJu5yBQ4eLGl">AI 助手</span>
+    <button class="model" data-page-node-id="36DfU3VT7O3fOV2cRhX181">glm-4.6 ▾</button>
+    <button class="close" onclick="toggleDrawer()" data-page-node-id="nvDmJSxJeno9I06O1P05VC">✕</button>
+  </div>
+  <div class="ai-ctx" data-page-node-id="Bx9L6lMLenkfxzTGJQkJr7">
+    <b data-page-node-id="wL2L6VFB4TcjP141ThOARD">上下文</b>：GET /users/:id · 断言 3 条（1 fail）<br data-page-node-id="f7eaD2sMqggIgMDotwxlTC">
+    <div class="ms" data-page-node-id="KlIiDEvCu0hLp8byjBmyWQ">
+      <span class="ms-chip on" data-page-node-id="chvhR8jjJVQ6966FFQIVAR">边界值</span><span class="ms-chip on" data-page-node-id="PKA5WmqIKPE5WBKe7TzF5J">等价类</span><span class="ms-chip" data-page-node-id="WKAlEwgLstUhLYGcF5faFN">异常路径</span><span class="ms-chip" data-page-node-id="jOCr9mC6pLIyqk9o6eN7Ci">鉴权绕过</span><span class="ms-chip" data-page-node-id="wzRPCcluFts7qsLrlXvpxP">并发安全</span>
+    </div>
+  </div>
+  <div class="ai-body" data-page-node-id="M0BcvFWbeb41iERHre6CnS">
+    <div class="msg-u" data-page-node-id="OiMQ2gqaAQjwV91CgAbq5i">帮我针对这个 API 生成边界测试</div>
+    <div class="msg-ai" data-page-node-id="QpjnyDDGqVDsj0LksxQH6u">
+      <div class="cap" data-page-node-id="1WtQqVXPeGpFM0EZxSaHG7">已选方法论：边界值 + 等价类 · 生成 3 条候选</div>
+      <div class="gcard picked" data-page-node-id="IBqhm8Spnt1OkgzZABs4jQ"><span class="ck" data-page-node-id="Qg0ICTttuisYr1OLoOgOtN"></span><div class="bd" data-page-node-id="0tl8h9HyLqKcF2EvWojEZP"><div class="tt" data-page-node-id="S2lSUyW4nOYN0LD9LkZEZf">余额为 0 时下单 → 期望 422</div><div class="mt" data-page-node-id="XxBZAYwJOFSjA3MbMDHjP4">POST /orders · amount=0</div></div><span class="how" data-page-node-id="Y0urFH0ooG8CUJ2dH8xmVe">边界值</span></div>
+      <div class="gcard picked" data-page-node-id="3lKQkCWSwGiWD6GnGtqhqD"><span class="ck" data-page-node-id="ZQyQrwjALFvFUwFZEJHiy4"></span><div class="bd" data-page-node-id="4QfG4NLumIBYjJ98jctdZs"><div class="tt" data-page-node-id="AtHPhzmeHhdBQSb8YWQBup">余额为负数下单 → 期望 422</div><div class="mt" data-page-node-id="IqS9DQ1uQXNFQoGZatm1rS">POST /orders · amount=-1</div></div><span class="how" data-page-node-id="6I9EqaPgolgmMw6LwADQDI">等价类</span></div>
+      <div class="gcard" data-page-node-id="3kAEF3v8EmRluHaNXJi9vx"><span class="ck" data-page-node-id="MbavfyNvMJBDpJVEHWMS72"></span><div class="bd" data-page-node-id="oDfAMDi3hlmZA6CC0Q2CRI"><div class="tt" data-page-node-id="UkQgUAkkLDQjgUs5zwUFkv">未携带 token 下单 → 期望 401</div><div class="mt" data-page-node-id="md8RTsGMV9K8HHovA9pVm6">POST /orders · no auth</div></div><span class="how" data-page-node-id="PcwLJCYvqPjX3zrKuEf1s9">异常路径</span></div>
+    </div>
+  </div>
+  <div class="ai-input-row" data-page-node-id="TiSkR4FJVj1nQ759Jj1EQT">
+    <input class="ai-in" placeholder="继续描述你的意图…" data-page-node-id="ElpvuK6KArk3A4AlZjF6Vw">
+    <button class="ai-go" data-page-node-id="yYw3gQS04sFTXtE0WKllAH">发送</button>
+  </div>
+</div>
+
+<script>
+function toggleDrawer() {
+  document.getElementById('dr').classList.toggle('show');
+  document.getElementById('ov').classList.toggle('show');
+}
+document.getElementById('ov').onclick = toggleDrawer;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.getElementById('dr').classList.remove('show'); document.getElementById('ov').classList.remove('show'); }});
+</script>
+</body>
+</html>

@@ -1,0 +1,437 @@
+import { Controller, Post, Body, Headers, Req, HttpException, HttpStatus } from '@nestjs/common';
+import { RunsService, DEMO_STEPS } from './runs/runs.service';
+import {
+  analyzeImpact,
+  buildMrComment,
+  buildTestRuns,
+  type StepDef,
+  type RunOutcome,
+  type ReviewReport,
+} from '@verifyos/agent-core';
+import { ExploreService } from './explore/explore.service';
+import {
+  loadPrConfig,
+  mergePrConfig,
+  extractPrLayers,
+  shouldTriggerPr,
+  applyGate,
+  type GatePolicy,
+} from './pr/pr-config';
+import { GitlabClient } from './connectors/gitlab.client';
+import { GithubClient } from './connectors/github.client';
+
+/** T9: repo url / path 归一化——去除 .git 后缀、scheme/host、SSH 前缀，统一为 path 小写指纹（group/repo） */
+function repoPath(u: unknown): string {
+  let s = String(u ?? '').trim().replace(/\.git$/i, '').replace(/\/+$/, '');
+  const ssh = s.match(/^git@[^:]+:(.+)$/i);
+  if (ssh) s = ssh[1];
+  const http = s.match(/^https?:\/\/[^/]+\/(.+)$/i);
+  if (http) s = http[1];
+  return s.toLowerCase();
+}
+
+/** 请求头可能是 string | string[]（express 的 IncomingHttpHeaders），统一取首个值 */
+function firstHeader(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+interface MatchedProject {
+  projectId: number;
+  shortId: string;
+  name: string;
+  repoUrl: string;
+  repoKind: string;
+  environment: { name: string; url: string } | null;
+}
+
+/** 双平台归一化后的 PR/MR 上下文（GitLab object_attributes / GitHub pull_request） */
+interface PrContext {
+  platform: 'gitlab' | 'github';
+  /** GitLab iid / GitHub number（可能缺失，缺失时跳过 mr 落库与评论回写） */
+  iid?: number;
+  title: string;
+  branch: string;
+  diffText?: string;
+  changedFiles?: string[];
+  /** GitLab 项目 id（用于拉 changes / 回写 notes） */
+  gitlabProjectId?: number | string;
+  /** GitHub owner / repo（用于拉 files / 回写 issue comment） */
+  githubOwner?: string;
+  githubRepo?: string;
+  body: Record<string, unknown>;
+}
+
+/** T5：把影响分析结果 + 回归 outcome 合成 ReviewReport（不二次调 LLM，直接喂给 buildMrComment） */
+function buildReviewFromImpact(
+  impact: { summary: string; affectedAreas: Array<{ area: string; reason: string; risk: string }> },
+  outcome: RunOutcome,
+): ReviewReport {
+  return {
+    summary: `${impact.summary}（回归判定：${outcome.verdict}${outcome.failureSummary ? '，失败：' + outcome.failureSummary : ''}）`,
+    areas: impact.affectedAreas.map((a) => ({
+      title: a.area.slice(0, 20),
+      severity: (a.risk === 'high' ? 'high' : a.risk === 'medium' ? 'medium' : 'info') as ReviewReport['areas'][number]['severity'],
+      related: 'pr' as const,
+      suggestion: a.reason,
+    })),
+  };
+}
+
+/**
+ * webhook 入口（GitLab + GitHub 双平台）。
+ * 链路：鉴权（token / HMAC）→ 真拉 diff → 影响分析 → 定向回归 Run → 评论回写。
+ * 评论回写与动态探索均为异步、失败不阻塞主链路。
+ */
+@Controller('api/webhooks')
+export class WebhooksController {
+  constructor(
+    private readonly runs: RunsService,
+    private readonly exploreSvc: ExploreService,
+    private readonly gitlabClient: GitlabClient,
+    private readonly githubClient: GithubClient,
+  ) {}
+
+  /** T9: 用 repo url/path 反查归属 project 及其环境（GitLab: project.http_url/web_url/path_with_namespace；GitHub: repository.*） */
+  private async resolveProjectByRepo(body: Record<string, unknown>): Promise<MatchedProject | null> {
+    const proj = (body?.project ?? {}) as Record<string, unknown>;
+    const repo = (body?.repository ?? {}) as Record<string, unknown>;
+    const candidates = [
+      proj.http_url, proj.web_url, proj.path_with_namespace,
+      repo.html_url, repo.clone_url, repo.full_name,
+    ].filter((x): x is string => typeof x === 'string' && x.length > 0);
+    if (candidates.length === 0) return null;
+    const paths = candidates.map(repoPath);
+    const rows = await this.exploreSvc.pg.query(
+      `SELECT pr.id, pr.project_id, pr.repo_url, pr.kind, p.short_id AS p_short_id, p.name AS p_name
+       FROM project_repo pr JOIN project p ON p.id = pr.project_id`,
+    );
+    const hit = (rows.rows as Array<Record<string, unknown>>).find((r) => paths.includes(repoPath(r.repo_url)));
+    if (!hit) return null;
+    // PR 验证优先用非生产环境（测试/预发），仅生产环境时才回退生产
+    const envRows = await this.exploreSvc.pg.query(
+      `SELECT name, url, is_production FROM project_environment WHERE project_id = $1 ORDER BY is_production ASC, id LIMIT 1`,
+      [hit.project_id as number],
+    );
+    const envRow = envRows.rows[0] as { name: string; url: string } | undefined;
+    return {
+      projectId: hit.project_id as number,
+      shortId: hit.p_short_id as string,
+      name: hit.p_name as string,
+      repoUrl: hit.repo_url as string,
+      repoKind: hit.kind as string,
+      environment: envRow && (envRow.url || envRow.name) ? { name: envRow.name, url: envRow.url } : null,
+    };
+  }
+
+  /** D3：GitLab MR webhook → 鉴权 → 真拉 diff → 影响分析 → 定向 Run → 回写评论 */
+  @Post('gitlab')
+  async gitlab(@Body() body: Record<string, unknown>, @Headers('x-gitlab-token') token?: string) {
+    await this.exploreSvc.ensureReady(); // webhook 可能是重启后第一个请求——先确保 pool/schema 就绪
+    // T5: webhook 鉴权（X-Gitlab-Token），不匹配直接 401（未配置时降级放行）
+    const auth = await this.gitlabClient.verifyWebhook(token ?? null);
+    if (!auth.ok) throw new HttpException({ ok: false, reason: auth.reason }, HttpStatus.UNAUTHORIZED);
+
+    const kind = (body?.object_kind as string) ?? 'unknown';
+    if (kind !== 'merge_request') {
+      return { accepted: false, reason: `ignored object_kind=${kind}` };
+    }
+    const attrs = (body?.object_attributes ?? {}) as Record<string, unknown>;
+    const project = (body?.project ?? {}) as Record<string, unknown>;
+    const iid = attrs.iid as number | undefined;
+    const projectId = (attrs.target_project_id ?? attrs.source_project_id ?? project.id) as number | undefined;
+    const branch = (attrs.source_branch as string) ?? 'unknown-branch';
+    const title = (attrs.title as string) ?? `MR !${iid ?? '?'}`;
+
+    // T5: 真拉 diff（替代 body.diff），失败降级 body 自带字段（不阻塞）
+    let diffText = (body.diff as string) ?? undefined;
+    let changedFiles = (body.changed_files as string[]) ?? undefined;
+    if (iid != null && projectId != null) {
+      const pulled = await this.gitlabClient.fetchChanges(projectId, iid).catch((err) => {
+        console.log('[webhook] GitLab changes 拉取失败（降级 body.diff）：', err instanceof Error ? err.message.slice(0, 80) : err);
+        return null;
+      });
+      if (pulled) {
+        if (pulled.diffText) diffText = pulled.diffText;
+        if (pulled.changedFiles.length > 0) changedFiles = pulled.changedFiles;
+        console.log(`[webhook] GitLab changes 已拉取：${pulled.changedFiles.length} 个文件`);
+      }
+    }
+
+    return this.handlePr({ platform: 'gitlab', iid, title, branch, diffText, changedFiles, gitlabProjectId: projectId, body });
+  }
+
+  /** T5：GitHub PR webhook → HMAC 鉴权 → 真拉 files → 影响分析 → 定向 Run → 回写评论 */
+  @Post('github')
+  async github(
+    @Req() req: { rawBody?: Buffer; headers?: Record<string, string | string[] | undefined> },
+    @Body() body: Record<string, unknown>,
+  ) {
+    await this.exploreSvc.ensureReady();
+    // T5: webhook 鉴权（X-Hub-Signature-256，对 raw body 做 HMAC-SHA256；未配置 secret 时降级放行）
+    const signature = firstHeader(req.headers?.['x-hub-signature-256']);
+    const raw = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(body);
+    const auth = await this.githubClient.verifySignature(raw, signature);
+    if (!auth.ok) throw new HttpException({ ok: false, reason: auth.reason }, HttpStatus.UNAUTHORIZED);
+
+    // 仅处理 pull_request 事件（push / issue 等其他事件直接忽略，不进入重链路）
+    if (!body?.pull_request || typeof body.pull_request !== 'object') {
+      return { accepted: false, reason: 'ignored non-pull_request event' };
+    }
+
+    const pr = (body?.pull_request ?? {}) as Record<string, unknown>;
+    const repo = (body?.repository ?? {}) as Record<string, unknown>;
+    const owner = (repo.owner as Record<string, unknown> | undefined)?.login as string | undefined;
+    const repoName = repo.name as string | undefined;
+    const number = pr.number as number | undefined;
+    const title = (pr.title as string) ?? `PR #${number ?? '?'}`;
+    const branch = ((pr.head as Record<string, unknown> | undefined)?.ref as string) ?? 'unknown-branch';
+
+    // T5: 真拉 changed files（替代空变更集），失败降级空（不阻塞）
+    let diffText: string | undefined;
+    let changedFiles: string[] | undefined;
+    if (owner && repoName && number != null) {
+      const pulled = await this.githubClient.fetchChangedFiles(owner, repoName, number).catch((err) => {
+        console.log('[webhook] GitHub files 拉取失败（降级空变更集）：', err instanceof Error ? err.message.slice(0, 80) : err);
+        return null;
+      });
+      if (pulled) {
+        if (pulled.diffText) diffText = pulled.diffText;
+        if (pulled.changedFiles.length > 0) changedFiles = pulled.changedFiles;
+        console.log(`[webhook] GitHub files 已拉取：${pulled.changedFiles.length} 个文件`);
+      }
+    }
+
+    return this.handlePr({ platform: 'github', iid: number, title, branch, diffText, changedFiles, githubOwner: owner, githubRepo: repoName, body });
+  }
+
+  /** 双平台共享主链路：三层配置 → 触发规则 → 影响分析 → 定向 Run → issue/mr 落库 → 异步回写评论 */
+  private async handlePr(ctx: PrContext) {
+    const { platform, iid, title, branch } = ctx;
+
+    // T8：读 config.yaml（项目默认层）→ 合并 Test Plan 层与单次 Run override 层（三层优先级）
+    const { pr: projectDefault, source: configSource } = loadPrConfig(process.cwd());
+    const { testPlan, override } = extractPrLayers(ctx.body);
+    const pr = mergePrConfig(projectDefault, testPlan, override);
+    console.log(`[webhook] 按 config 门禁策略=${pr.gate}${configSource ? `（${configSource}）` : '（未找到 config.yaml，用默认）'}`);
+    console.log(`[webhook] 门禁阈值：fail→${applyGate(pr.gate, 'fail').decision} · unknown→${applyGate(pr.gate, 'unknown').decision}`);
+    if (pr.verifications.length > 0) console.log(`[webhook] config 指定验证=${pr.verifications.join(', ')}`);
+    if (override.gate || override.branches || override.files || override.verifications) {
+      console.log('[webhook] 三层 merge：单次 Run override 已覆盖项目默认（override 最高优先级生效）');
+    }
+
+    // branches/files 触发规则：命中才触发定向回归，未命中直接跳过（不打断 webhook 链路）
+    const triggerCheck = shouldTriggerPr(pr, branch, ctx.changedFiles ?? []);
+    if (!triggerCheck.trigger) {
+      console.log(`[webhook] 跳过：${triggerCheck.reason}`);
+      return { accepted: false, skipped: true, reason: triggerCheck.reason, gate: pr.gate };
+    }
+    console.log(`[webhook] ${triggerCheck.reason}`);
+
+    // T9: 按 repo url/path 反查归属 project——用该项目的环境作为 Run 目标（找不到则回退默认 fixture）
+    const matched = await this.resolveProjectByRepo(ctx.body).catch((err) => {
+      console.log('[webhook] ⚠️ repo 反查失败（不阻塞）：', err instanceof Error ? err.message.slice(0, 80) : err);
+      return null;
+    });
+    if (matched) {
+      console.log(`[webhook] repo 反查命中项目=${matched.name}(${matched.shortId}) repo=${matched.repoUrl} kind=${matched.repoKind}` +
+        `${matched.environment ? ` 环境=${matched.environment.name}(${matched.environment.url})` : '（该项目无环境，回退 fixture）'}`);
+    } else {
+      console.log('[webhook] repo 未匹配任何项目（project_repo 空或 url 不匹配），按默认项目处理');
+    }
+
+    const llm = {
+      apiKey: process.env.LLM_API_KEY ?? '',
+      baseURL: process.env.LLM_BASE_URL ?? 'https://open.bigmodel.cn/api/paas/v4',
+      model: process.env.LLM_MODEL ?? 'glm-4.5v',
+    };
+    // LLM 结构化输出偶发不合 schema（AI_NoObjectGeneratedError）——降级为启发式分析，webhook 链路不中断
+    let impact: Awaited<ReturnType<typeof analyzeImpact>>;
+    try {
+      impact = await analyzeImpact({ prTitle: title, diffText: ctx.diffText, changedFiles: ctx.changedFiles, llm });
+    } catch (err) {
+      console.log('[webhook] ⚠️ LLM 影响分析失败，降级启发式：', err instanceof Error ? err.message.slice(0, 80) : err);
+      const domain = ctx.changedFiles?.[0]?.split('/')[0] ?? branch.split('/')[1] ?? '核心业务';
+      impact = {
+        summary: `（LLM 分析降级：模型输出不合 schema）基于变更文件的启发式分析：本次改动涉及 ${domain} 域（${(ctx.changedFiles ?? []).join(', ') || branch}），建议对既有流程做定向回归。`,
+        affectedAreas: [{ area: `${domain} 流程回归`, risk: 'medium', reason: `changed files: ${(ctx.changedFiles ?? []).join(', ') || '未知'}` }],
+        regressionSuggestions: [
+          { title: `${title} 变更后主流程回归`, targetUrlHint: 'list.html' },
+          { title: `${domain} 关键断言复验`, targetUrlHint: 'list.html' },
+        ],
+      } as typeof impact;
+    }
+
+    // 定向回归步骤：前置确定性登录 + 每条 suggestion 变 assertion+targetRef（UNKNOWN 防假绿生效）
+    const login = DEMO_STEPS[0];
+    const targetSteps: StepDef[] = [
+      login,
+      ...impact.regressionSuggestions.slice(0, 3).map((sug, i) => ({
+        id: `st_reg_${i + 1}`,
+        title: sug.title,
+        kind: 'assertion' as const,
+        assert: { kind: 'url_contains' as const, value: 'list.html' },
+        targetRef: sug.targetUrlHint ?? undefined,
+      })),
+    ];
+
+    // 高风险 affectedAreas → 自动转 issue 落库（同标题 open 去重）
+    const issues: Array<{ title: string; severity: string }> = [];
+    for (const a of impact.affectedAreas.filter((x) => x.risk !== 'low')) {
+      const dup = await this.exploreSvc.pg.query(`SELECT id FROM issue WHERE title = $1 AND status = 'open' LIMIT 1`, [a.area]);
+      if (dup.rows.length === 0) {
+        await this.exploreSvc.pg.query(
+          `INSERT INTO issue(short_id, application_id, title, severity, source)
+           VALUES ($1, 1, $2, $3, $4::jsonb)`,
+          [`iss_${Math.random().toString(36).slice(2, 8)}`, a.area, a.risk, JSON.stringify({ reason: a.reason, pr: title, mrIid: iid })],
+        );
+        issues.push({ title: a.area, severity: a.risk });
+      }
+    }
+
+    // T9: 反查到项目且带环境 → 用该环境 url 作为 Run 目标；否则回退 fixture
+    const startUrl = matched?.environment?.url || this.runs.fixtureEntryUrl;
+    const trigger = await this.runs.trigger({ startUrl, steps: targetSteps, trigger: 'pr' });
+
+    // F11: webhook 落/更新 MR 记录（列表自动出现；review 存 impact 摘要供详情页渲染）
+    if (iid != null) {
+      const projName = matched?.name ?? String((ctx.body?.project as Record<string, unknown> | undefined)?.name ?? 'order-api');
+      const repoLabel = matched?.repoUrl ?? String((ctx.body?.project as Record<string, unknown> | undefined)?.path_with_namespace ?? projName);
+      const userName = String((ctx.body?.user as Record<string, unknown> | undefined)?.name ?? 'gitlab-user');
+      await this.exploreSvc.pg.query(
+        `INSERT INTO mr(iid, title, state, author, repo, source_branch, review)
+         VALUES ($1,$2,'opened',$3,$4,$5,$6::jsonb)
+         ON CONFLICT (iid) DO UPDATE SET title = EXCLUDED.title, source_branch = EXCLUDED.source_branch,
+           review = EXCLUDED.review, running = false, updated_at = now()`,
+        [iid, title, userName, repoLabel, branch, JSON.stringify({
+          verdict: 'unknown',
+          checkedAt: '刚刚 · webhook 自动触发（preview 就绪）',
+          summary: impact.summary,
+          areas: impact.affectedAreas.map((a) => ({
+            title: a.area, severity: a.risk === 'high' ? 'high' : 'info',
+            related: a.risk === 'high' ? '本 PR 相关' : null, hint: a.reason, action: null,
+          })),
+          tests: impact.regressionSuggestions.slice(0, 5).map((s, i) => ({
+            title: s.title, status: 'unknown', source: `webhook 定向回归 #${i + 1}`, durationSec: 0,
+          })),
+          bot: `webhook 触发：${impact.regressionSuggestions.length} 条定向回归建议已注入 Run 执行（防假绿 targetRef 生效）。`,
+        })],
+      );
+
+      // F11-dyn: 动态探索（探索式回归）——mini-explore 收集 Live Findings，完成后合并进 MR review
+      // 异步执行（webhook 响应不等待）；引擎忙则诚实标注跳过（explore 服务状态全局共享，并发会互相污染）
+      void (async () => {
+        if (this.exploreSvc.controlState().running) {
+          await this.exploreSvc.pg.query(
+            `UPDATE mr SET review = jsonb_set(review, '{bot}', to_jsonb((review->>'bot') || ' 动态探索跳过（探索引擎忙，稍后重试）。')), updated_at = now() WHERE iid = $1`,
+            [iid],
+          ).catch(() => undefined);
+          return;
+        }
+        const findings: Array<{ level: string; title: string; detail: string }> = [];
+        try {
+          const done = await this.exploreSvc.explore(
+            { startUrl, intent: `PR !${iid} 动态探索（探索式回归）`, maxActions: 5, credential: { username: 'admin', password: 'test123' } },
+            (e) => { if (e.finding) findings.push(e.finding); },
+          );
+          const cur = await this.exploreSvc.pg.query(`SELECT review FROM mr WHERE iid = $1 LIMIT 1`, [iid]);
+          if (cur.rows.length > 0) {
+            const review = (cur.rows[0].review ?? {}) as Record<string, unknown>;
+            review.dynamicFindings = findings.slice(0, 6);
+            review.dynamicStats = { pages: done.pages ?? 0, edges: done.edges ?? 0, qaCount: done.qaCount ?? 0 };
+            review.bot = `${(review.bot as string) ?? ''} 动态探索完成：${done.pages ?? 0} 页 · ${done.edges ?? 0} 边 · 新增 ${done.qaCount ?? 0} 条 QA 候选 · ${findings.length} 条新发现。`;
+            await this.exploreSvc.pg.query(`UPDATE mr SET review = $2::jsonb, updated_at = now() WHERE iid = $1`, [iid, JSON.stringify(review)]);
+          }
+        } catch (err) {
+          console.log('[webhook] 动态探索失败（不阻塞主链路）：', err instanceof Error ? err.message.slice(0, 80) : err);
+        }
+      })();
+
+      // T5: 回归完成后回写平台评论（异步，失败只留痕不阻塞 webhook）
+      void this.writeBackComment(ctx, trigger.runId, impact, pr.gate, targetSteps).catch((err) => {
+        console.log('[webhook] 评论回写异常（不阻塞）：', err instanceof Error ? err.message.slice(0, 120) : err);
+      });
+    }
+
+    return {
+      accepted: true,
+      platform,
+      mr: { iid, branch, title },
+      gate: pr.gate,
+      triggerRule: { branches: pr.branches, files: pr.files },
+      issuesCreated: issues.length > 0 ? issues : undefined,
+      impact: {
+        summary: impact.summary,
+        affectedAreas: impact.affectedAreas,
+        regressionCount: impact.regressionSuggestions.length,
+      },
+      targetSteps: targetSteps.map((s) => ({ id: s.id, title: s.title, targetRef: s.targetRef })),
+      previewUrl: startUrl,
+      matchedProject: matched
+        ? { shortId: matched.shortId, name: matched.name, repoUrl: matched.repoUrl, kind: matched.repoKind, environment: matched.environment }
+        : null,
+      dynamicExplore: iid != null ? 'started（mini-explore 约 30-60s，完成后 MR 详情出现「动态探索新发现」）' : undefined,
+      ...(trigger as object),
+    };
+  }
+
+  /** T5：等待定向回归 Run 完成后，用 buildMrComment 生成三段式评论并回写平台 */
+  private async writeBackComment(
+    ctx: PrContext,
+    runId: string,
+    impact: Awaited<ReturnType<typeof analyzeImpact>>,
+    gatePolicy: GatePolicy,
+    targetSteps: StepDef[],
+  ): Promise<void> {
+    if (ctx.platform === 'gitlab' && ctx.gitlabProjectId == null) {
+      console.log('[webhook] 缺少 GitLab project_id，跳过 MR 评论回写');
+      return;
+    }
+    if (ctx.platform === 'github' && (!ctx.githubOwner || !ctx.githubRepo)) {
+      console.log('[webhook] 缺少 GitHub owner/repo，跳过 PR 评论回写');
+      return;
+    }
+    const outcome = await this.waitRun(runId);
+    if (!outcome) {
+      console.log('[webhook] 回归未在超时内完成，跳过评论回写');
+      return;
+    }
+    const report = buildReviewFromImpact(impact, outcome);
+    const testRuns = buildTestRuns(outcome, targetSteps);
+    const gate = applyGate(gatePolicy, outcome.verdict);
+    const comment = buildMrComment({
+      prTitle: ctx.title,
+      report,
+      outcome,
+      testRuns,
+      gate,
+      evidenceBase: (process.env.VERIFYOS_BASE_URL ?? '').replace(/\/+$/, '') || undefined,
+    });
+    if (ctx.platform === 'gitlab') {
+      await this.gitlabClient.postComment(ctx.gitlabProjectId!, ctx.iid!, comment);
+    } else {
+      await this.githubClient.postComment(ctx.githubOwner!, ctx.githubRepo!, ctx.iid!, comment);
+    }
+  }
+
+  /** 等待 run.done 事件并取回 RunOutcome（触发后立即调用，超时兜底避免悬挂） */
+  private waitRun(runId: string, timeoutMs = 180000): Promise<RunOutcome | null> {
+    return new Promise((resolve) => {
+      const cached = this.runs.get(runId);
+      if (cached) { resolve(cached); return; }
+      let settled = false;
+      const onDone = (d: { runId: string }) => {
+        if (d.runId !== runId) return;
+        finish(this.runs.get(runId) ?? null);
+      };
+      const finish = (o: RunOutcome | null) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        this.runs.off('run.done', onDone);
+        resolve(o);
+      };
+      const timer = setTimeout(() => finish(null), timeoutMs);
+      this.runs.on('run.done', onDone);
+    });
+  }
+}

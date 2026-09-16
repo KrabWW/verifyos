@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN" data-page-node-id="QDbQZuCzczFiBg0MCPTPni">
+<head data-page-node-id="Sq1IuowMLs9rhabnUKGZYR"><meta charset="utf-8" data-page-node-id="SQBFMnBwx0PY9FBmOP6frw"><title>登录 · 演示 CRM</title></head>
+<body data-page-node-id="AbGnUDULR97MJUGneDoy4v">
+  <h1 data-page-node-id="tarB1yCowm5hawGDMx8hdt">欢迎回来</h1>
+  <p data-page-node-id="giM3dkSEK7vEb5Idys7TD1">请登录以使用演示 CRM 系统。</p>
+  <form id="login-form" data-page-node-id="YdaFw6B9BvBE0oDqE9fgFx">
+    <div data-page-node-id="jMk6wTFquUGYTfje1c2uQb"><label data-page-node-id="LHyZHjZ4B2H3zQ7BSVkjfO">用户名 <input id="username" name="username" type="text" autocomplete="username" data-page-node-id="vTvD27WMi98OzCFAm08UEK"></label></div>
+    <div data-page-node-id="NFvaq86lsg8wdg0tjT2JTn"><label data-page-node-id="7KbZjwO4vljlNuGYOCweR1">密码 <input id="password" name="password" type="password" autocomplete="current-password" data-page-node-id="WLy4gaxrIKDUgdAlxDAk7n"></label></div>
+    <button type="submit" data-page-node-id="PYWwYg1eVqBqIRWiDAic4t">登录</button>
+  </form>
+  <p data-page-node-id="3yktwufrV8GKFyTvzD5UWG"><a href="about.html" data-page-node-id="6W2edm27QzpfsvFPHTSdpK">关于我们</a></p>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var u = document.getElementById('username').value;
+      var p = document.getElementById('password').value;
+      if (u === 'admin' && p === 'test123') {
+        localStorage.setItem('session', 'ok');
+        location.href = 'list.html';
+      } else {
+        document.getElementById('err').textContent = '账号或密码错误';
+      }
+    });
+  </script>
+  <div id="err" style="color:red" data-page-node-id="vRUXAPkxC2GgVfBzNHVAyz"></div>
+<script>// 演示探针：验证 RUN LOG 的 Console 采集链路（真实被测系统会显示它自己的 console 输出）
+  console.log("[演示站] 页面已加载——这行来自演示站脚本，用于验证 Console 采集");
+  console.error("[演示站] 示例 error——用于验证错误级红色着色");</script>
+</body>
+</html>

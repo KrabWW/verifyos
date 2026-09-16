@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>ACME CRM · PoC 测试页</title>
+<style>
+  body{font:14px/1.6 -apple-system,"PingFang SC",sans-serif;background:#f7f7f8;color:#18181b;padding:24px}
+  .panel{max-width:520px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:20px}
+  h1{font-size:18px;margin-bottom:14px}
+  label{display:block;font-size:12px;color:#71717a;margin:10px 0 4px}
+  input,select{width:100%;border:1px solid #d4d4d8;border-radius:6px;padding:8px 10px;font-size:14px;box-sizing:border-box}
+  button{background:#18181b;color:#fff;border:none;border-radius:6px;padding:9px 22px;font-size:14px;cursor:pointer;margin-top:14px}
+  #msg{margin-top:12px;font-weight:600;min-height:20px}
+  .ok{color:#16a34a}.err{color:#dc2626}
+  table{width:100%;border-collapse:collapse;margin-top:14px;font-size:13px}
+  td,th{border-bottom:1px solid #f1f1f3;padding:7px 6px;text-align:left}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="panel" id="login-panel">
+  <h1>ACME CRM 登录</h1>
+  <label>邮箱</label><input id="email" type="email" placeholder="请输入邮箱">
+  <label>密码</label><input id="pwd" type="password" placeholder="请输入密码">
+  <button id="login-btn">登录</button>
+  <div id="login-msg"></div>
+</div>
+
+<div class="panel hidden" id="emp-panel">
+  <h1>员工管理 <button id="add-btn" style="float:right;margin:0">＋ 新增员工</button></h1>
+  <table id="emp-table">
+    <tr><th>姓名</th><th>编号</th><th>部门</th></tr>
+    <tr><td>李四</td><td>LS-002</td><td>产品部</td></tr>
+    <tr><td>王五</td><td>WW-003</td><td>研发部</td></tr>
+  </table>
+</div>
+
+<div class="panel hidden" id="form-panel">
+  <h1>新增员工</h1>
+  <label>姓名</label><input id="f-name" placeholder="请输入姓名">
+  <label>员工编号</label><input id="f-code" placeholder="例如 ZS-001">
+  <label>部门</label>
+  <select id="f-dept"><option>研发部</option><option>产品部</option><option>设计部</option></select>
+  <button id="save-btn">保存</button>
+  <div id="form-msg"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+$('login-btn').onclick = () => {
+  if ($('email').value.includes('@') && $('pwd').value.length >= 6) {
+    $('login-panel').classList.add('hidden');
+    $('emp-panel').classList.remove('hidden');
+  } else {
+    $('login-msg').textContent = '邮箱或密码格式不正确';
+    $('login-msg').className = 'err';
+  }
+};
+$('add-btn').onclick = () => {
+  $('emp-panel').classList.add('hidden');
+  $('form-panel').classList.remove('hidden');
+};
+$('save-btn').onclick = () => {
+  if (!$('f-name').value || !$('f-code').value) {
+    $('form-msg').textContent = '姓名与编号必填';
+    $('form-msg').className = 'err';
+    return;
+  }
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${$('f-name').value}</td><td>${$('f-code').value}</td><td>${$('f-dept').value}</td>`;
+  $('emp-table').appendChild(tr);
+  $('form-panel').classList.add('hidden');
+  $('emp-panel').classList.remove('hidden');
+  $('login-msg').textContent = '';
+};
+</script>
+</body>
+</html>

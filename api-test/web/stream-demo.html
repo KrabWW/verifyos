@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VerifyOS · AI 流式生成（SSE 演示）</title>
+<!--
+  P2.8 流式演示页（纯静态零依赖，file:// 直开可跑）。
+
+  两种模式：
+  - mock 模式（默认）：内置前端版 mock producer，JS 定时器模拟 token 流，
+    file:// 直开即可体验打字机 + 事件序列（与服务端 src/stream/generate-stream.ts 同构文案）；
+  - 真实 SSE 模式：顶部开关打开后，fetch + ReadableStream 手写 SSE 解析
+    （与 src/stream/client.ts 同构），需 http 环境跑 npm 侧服务端（scripts/verify-sse.ts 同款端点）。
+
+  事件协议（与服务端 src/stream/sse.ts 统一）：
+  start（kind: gen-case/gen-assertion/diagnose）→ N×delta（{text, meta?}）
+  + progress（{percent}）→ done（{kind, result}）| error（{message}）。
+
+  视觉对齐 web/style.css 的暗色 teal 基调（色值变量复制自原文件，不引原文件，保持本页自包含）。
+-->
+<style>
+:root {
+  --bg: #121212;
+  --bg-soft: #171717;
+  --bg-panel: #1c1c1c;
+  --bg-hover: #242424;
+  --border: #2c2c2c;
+  --border-soft: #232323;
+  --fg: #e5e7eb;
+  --fg-dim: #9ca3af;
+  --fg-faint: #6b7280;
+  --accent: #10b981;
+  --accent-soft: rgba(16, 185, 129, 0.14);
+  --accent-dim: #34d399;
+  --ok: #22c55e;
+  --warn: #f59e0b;
+  --err: #ef4444;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--bg);
+}
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  height: 46px; padding: 0 14px;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand .logo {
+  width: 18px; height: 18px; border-radius: 5px;
+  background: linear-gradient(135deg, var(--accent), #0ea5e9);
+}
+.brand .name { font-weight: 700; font-size: 14px; letter-spacing: 0.3px; }
+.brand .ver { font-size: 11px; color: var(--fg-faint); font-family: var(--mono); }
+.topbar .spacer { flex: 1; }
+.sse-url {
+  width: 260px; height: 28px; padding: 0 8px;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--fg); font-family: var(--mono); font-size: 11px;
+}
+.sse-url:disabled { opacity: 0.45; }
+
+/* 模式开关 */
+.switch { display: flex; align-items: center; gap: 8px; color: var(--fg-dim); cursor: pointer; user-select: none; }
+.switch .track {
+  width: 34px; height: 18px; border-radius: 9px;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  position: relative; transition: background 0.15s;
+}
+.switch .track::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--fg-faint); transition: all 0.15s;
+}
+.switch input { display: none; }
+.switch input:checked + .track { background: var(--accent-soft); border-color: var(--accent); }
+.switch input:checked + .track::after { left: 18px; background: var(--accent); }
+
+.main { display: flex; gap: 14px; padding: 14px; height: calc(100vh - 46px); }
+.side { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+.card {
+  background: var(--bg-panel); border: 1px solid var(--border-soft);
+  border-radius: 8px; padding: 12px;
+}
+.card h3 { font-size: 12px; color: var(--fg-dim); font-weight: 600; margin-bottom: 10px; }
+.btn {
+  display: block; width: 100%;
+  background: var(--bg-hover); border: 1px solid var(--border);
+  color: var(--fg); font-size: 13px; text-align: left;
+  padding: 9px 12px; border-radius: 6px; cursor: pointer; margin-bottom: 8px;
+}
+.btn:hover:not(:disabled) { background: var(--bg-active, #2a2a2a); border-color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn .k { font-family: var(--mono); font-size: 11px; color: var(--accent-dim); float: right; }
+.btn.stop { text-align: center; color: var(--err); border-color: rgba(239, 68, 68, 0.4); display: none; }
+.btn.stop:hover { background: rgba(239, 68, 68, 0.12); }
+
+.stats { display: flex; flex-wrap: wrap; gap: 6px; }
+.stat {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--bg-hover); border: 1px solid var(--border-soft);
+  border-radius: 4px; padding: 3px 8px; color: var(--fg-dim);
+}
+.stat b { color: var(--fg); font-weight: 600; }
+.stat.start b { color: #3b82f6; }
+.stat.delta b { color: var(--accent); }
+.stat.progress b { color: var(--warn); }
+.stat.done b { color: var(--ok); }
+.stat.error b { color: var(--err); }
+
+.protocol { font-size: 11px; color: var(--fg-faint); line-height: 1.8; font-family: var(--mono); }
+.protocol em { color: var(--fg-dim); font-style: normal; }
+
+.output { flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel {
+  flex: 1; background: var(--bg-panel); border: 1px solid var(--border-soft);
+  border-radius: 8px; padding: 14px; display: flex; flex-direction: column; min-height: 0;
+}
+.panel h3 { font-size: 12px; color: var(--fg-dim); font-weight: 600; margin-bottom: 10px; display: flex; justify-content: space-between; }
+.panel h3 .state { font-family: var(--mono); font-size: 11px; }
+.state.idle { color: var(--fg-faint); }
+.state.streaming { color: var(--accent-dim); }
+.state.done { color: var(--ok); }
+.state.error { color: var(--err); }
+.stream-box {
+  flex: 1; overflow-y: auto; background: var(--bg);
+  border: 1px solid var(--border-soft); border-radius: 6px;
+  padding: 12px; font-family: var(--mono); font-size: 12.5px;
+  line-height: 1.85; white-space: pre-wrap; word-break: break-all;
+}
+.cursor {
+  display: inline-block; width: 7px; height: 15px; margin-left: 1px;
+  background: var(--accent); vertical-align: text-bottom;
+  animation: blink 0.9s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+.pbar { height: 4px; background: var(--bg-hover); border-radius: 2px; overflow: hidden; margin-top: 10px; }
+.pbar .fill { height: 100%; width: 0%; background: var(--accent); transition: width 0.2s; }
+.result-card {
+  display: none; margin-top: 10px;
+  background: var(--accent-soft); border: 1px solid rgba(16, 185, 129, 0.35);
+  border-radius: 6px; padding: 10px 12px; font-size: 12px; line-height: 1.7;
+}
+.result-card.error { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.35); }
+.result-card .t { color: var(--accent-dim); font-weight: 600; }
+.result-card.error .t { color: var(--err); }
+.result-card pre { font-family: var(--mono); font-size: 11px; color: var(--fg-dim); white-space: pre-wrap; word-break: break-all; margin-top: 6px; max-height: 160px; overflow-y: auto; }
+.hint { font-size: 11px; color: var(--fg-faint); line-height: 1.7; }
+.hint a { color: var(--accent-dim); text-decoration: none; }
+#selfcheck { display: none; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">
+    <div class="logo"></div>
+    <span class="name">VerifyOS</span>
+    <span class="ver">P2.8 stream-demo</span>
+  </div>
+  <div class="spacer"></div>
+  <label class="switch" title="打开后通过 fetch 消费真实 SSE 端点（需 http 环境）">
+    <input type="checkbox" id="mode-real">
+    <span class="track"></span>
+    <span>连接真实 SSE</span>
+  </label>
+  <input class="sse-url" id="sse-url" value="http://127.0.0.1:18080/sse/case" disabled
+         title="真实 SSE 端点地址（scripts/verify-sse.ts 的服务端同款协议）">
+</div>
+
+<div class="main">
+  <div class="side">
+    <div class="card">
+      <h3>AI 生成任务</h3>
+      <button class="btn" id="btn-case">AI 生成用例 <span class="k">gen-case</span></button>
+      <button class="btn" id="btn-assertion">生成断言 <span class="k">gen-assertion</span></button>
+      <button class="btn" id="btn-diagnose">失败诊断 <span class="k">diagnose</span></button>
+      <button class="btn stop" id="btn-stop">■ 停止</button>
+    </div>
+    <div class="card">
+      <h3>事件统计</h3>
+      <div class="stats">
+        <span class="stat start">start <b id="st-start">0</b></span>
+        <span class="stat delta">delta <b id="st-delta">0</b></span>
+        <span class="stat progress">progress <b id="st-progress">0</b></span>
+        <span class="stat done">done <b id="st-done">0</b></span>
+        <span class="stat error">error <b id="st-error">0</b></span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>事件协议</h3>
+      <div class="protocol">
+        <em>start</em> 任务开始（kind）<br>
+        <em>delta</em> 增量 {text, meta?}<br>
+        <em>progress</em> 进度 {percent}<br>
+        <em>done</em> 完成 {kind, result}<br>
+        <em>error</em> 失败 {message}，发完即 close
+      </div>
+    </div>
+    <div class="card">
+      <h3>说明</h3>
+      <div class="hint">
+        mock 模式：内置 producer 模拟 token 流，file:// 直开可跑。<br>
+        真实模式：fetch + ReadableStream 解析 SSE，需 http 端点（与服务端 <span style="font-family:var(--mono)">src/stream/sse.ts</span> 同协议）。
+      </div>
+    </div>
+  </div>
+
+  <div class="output">
+    <div class="panel">
+      <h3>
+        <span>流式输出</span>
+        <span class="state idle" id="state">idle</span>
+      </h3>
+      <div class="stream-box" id="stream"><span id="text"></span></div>
+      <div class="pbar"><div class="fill" id="pfill"></div></div>
+      <div class="result-card" id="result"></div>
+    </div>
+  </div>
+</div>
+
+<div id="selfcheck"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------------------------------------------------------
+  // DOM 引用
+  // ---------------------------------------------------------------
+  var $ = function (id) { return document.getElementById(id); };
+  var elText = $('text');
+  var elStream = $('stream');
+  var elState = $('state');
+  var elPfill = $('pfill');
+  var elResult = $('result');
+  var elStop = $('btn-stop');
+  var chkReal = $('mode-real');
+  var elUrl = $('sse-url');
+
+  var stats = { start: 0, delta: 0, progress: 0, done: 0, error: 0 };
+  var cursorEl = null;
+  var running = false;
+  var abortController = null;
+  var mockAborted = false;
+
+  // ---------------------------------------------------------------
+  // 打字机：delta 文本进队列，定时器逐字打出（30ms/字），完成后光标消失
+  // ---------------------------------------------------------------
+  var typeQueue = [];
+  var typing = false;
+
+  function showCursor() {
+    if (cursorEl) return;
+    cursorEl = document.createElement('span');
+    cursorEl.className = 'cursor';
+    elStream.appendChild(cursorEl);
+  }
+  function hideCursor() {
+    if (cursorEl && cursorEl.parentNode) cursorEl.parentNode.removeChild(cursorEl);
+    cursorEl = null;
+  }
+  function pump() {
+    if (typing) return;
+    typing = true;
+    var timer = setInterval(function () {
+      if (typeQueue.length === 0) {
+        clearInterval(timer);
+        typing = false;
+        if (!running) hideCursor(); // 流结束且队列打完 → 光标消失
+        return;
+      }
+      elText.textContent += typeQueue.shift();
+      elStream.scrollTop = elStream.scrollHeight;
+    }, 30);
+  }
+  function enqueueText(text) {
+    for (var i = 0; i < text.length; i++) typeQueue.push(text[i]);
+    showCursor();
+    pump();
+  }
+
+  // ---------------------------------------------------------------
+  // 状态与统计
+  // ---------------------------------------------------------------
+  function setState(cls, label) {
+    elState.className = 'state ' + cls;
+    elState.textContent = label;
+  }
+  function bump(name) {
+    stats[name] += 1;
+    var el = $('st-' + name);
+    if (el) el.textContent = String(stats[name]);
+  }
+  function resetRun() {
+    stats = { start: 0, delta: 0, progress: 0, done: 0, error: 0 };
+    ['start', 'delta', 'progress', 'done', 'error'].forEach(function (k) { $('st-' + k).textContent = '0'; });
+    elText.textContent = '';
+    typeQueue = [];
+    elPfill.style.width = '0%';
+    elResult.style.display = 'none';
+    elResult.className = 'result-card';
+  }
+  function setBusy(on) {
+    running = on;
+    ['btn-case', 'btn-assertion', 'btn-diagnose'].forEach(function (id) { $(id).disabled = on; });
+    elStop.style.display = on ? 'block' : 'none';
+    if (!on) hideCursorSoon();
+  }
+  function hideCursorSoon() {
+    // 若打字队列还有剩余，等 pump 收尾时自动隐藏
+    if (typeQueue.length === 0 && !typing) hideCursor();
+  }
+
+  // ---------------------------------------------------------------
+  // 统一事件处理（mock 与真实 SSE 共用，事件对象 {event, data}）
+  // ---------------------------------------------------------------
+  function handleEvent(evt) {
+    bump(evt.event);
+    if (evt.event === 'start') {
+      setState('streaming', 'streaming · ' + (evt.data && evt.data.kind));
+    } else if (evt.event === 'delta') {
+      if (evt.data && typeof evt.data.text === 'string') enqueueText(evt.data.text);
+    } else if (evt.event === 'progress') {
+      var p = evt.data && evt.data.percent;
+      if (typeof p === 'number') elPfill.style.width = p + '%';
+    } else if (evt.event === 'done') {
+      setState('done', 'done');
+      elPfill.style.width = '100%';
+      var r = evt.data && evt.data.result;
+      elResult.style.display = 'block';
+      if (r && r.name) {
+        elResult.innerHTML = '<span class="t">生成完成</span>：' + escapeHtml(r.name) +
+          '（断言 ' + (r.assertions ? r.assertions.length : '?') + ' 条，source=' + escapeHtml(r.source || 'ai') + '）' +
+          '<pre>' + escapeHtml(JSON.stringify(r, null, 2)) + '</pre>';
+      } else if (r && r.count !== undefined) {
+        elResult.innerHTML = '<span class="t">生成完成</span>：断言 ' + r.count + ' 条' +
+          '<pre>' + escapeHtml(JSON.stringify(r, null, 2)).slice(0, 2000) + '</pre>';
+      } else {
+        elResult.innerHTML = '<span class="t">生成完成</span>' +
+          '<pre>' + escapeHtml(JSON.stringify(r, null, 2)) + '</pre>';
+      }
+      setBusy(false);
+    } else if (evt.event === 'error') {
+      setState('error', 'error');
+      elResult.style.display = 'block';
+      elResult.className = 'result-card error';
+      elResult.innerHTML = '<span class="t">生成失败</span>：' + escapeHtml(evt.data && evt.data.message || '未知错误');
+      setBusy(false);
+    }
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // mock producer：前端版流式生成源（与服务端 generate-stream.ts 同构文案）
+  // 逐块 yield {event, data}，间隔约 25ms 模拟 token 流节奏
+  // ---------------------------------------------------------------
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function makeMockProducer(kind) {
+    return async function produce(emit) {
+      await sleep(60);
+      emit({ event: 'start', data: { kind: kind } });
+      var steps = MOCK_SCRIPTS[kind];
+      for (var i = 0; i < steps.length; i++) {
+        if (mockAborted) return;
+        var s = steps[i];
+        if (s.progress !== undefined) emit({ event: 'progress', data: { percent: s.progress } });
+        emit({ event: 'delta', data: { text: s.text, meta: s.meta } });
+        await sleep(25 + Math.random() * 20);
+      }
+      if (mockAborted) return;
+      emit({ event: 'done', data: { kind: kind, result: MOCK_RESULTS[kind] } });
+    };
+  }
+
+  var SAMPLE = {
+    assertions: [
+      { type: 'status', operator: 'eq', expected: 200, mode: 'strict' },
+      { type: 'jsonpath', target: '$.id', operator: 'eq', expected: 'u_123', mode: 'strict' },
+      { type: 'jsonpath', target: '$.name', operator: 'eq', expected: '李雷', mode: 'strict' },
+      { type: 'jsonpath', target: '$.created_at', operator: 'exists', mode: 'ignore' }
+    ],
+    case_title: 'GET /api/users 正常返回',
+    diagnosis: {
+      passed: false,
+      root_cause: 'business_change',
+      reason: '字段值变化但结构一致，疑似业务数据变更',
+      suggestions: ['确认为预期业务变化后接受新断言', '更新用例期望值']
+    }
+  };
+
+  function assertLines() {
+    return SAMPLE.assertions.map(function (a, i) {
+      return '  断言 ' + (i + 1) + '：[' + a.type + '] ' + (a.target || '(status)') +
+        (a.operator === 'exists' ? ' 存在' : ' ' + (a.operator || 'eq') + ' ' + JSON.stringify(a.expected)) +
+        '（' + a.mode + '）\n';
+    });
+  }
+
+  var MOCK_SCRIPTS = {
+    'gen-case': [
+      { text: '分析请求：GET /api/users?page=2…\n', progress: 10 },
+      { text: '响应状态码 200，开始解析响应体…\n', progress: 20 },
+      { text: '路径分段：/api / users\n', progress: 30 },
+      { text: 'query 参数：page=2\n', progress: 40 },
+      { text: '生成断言：从响应推导 4 条字段级断言…\n', progress: 50 }
+    ].concat(assertLines().map(function (t, i) {
+      return { text: t, progress: 60 + i * 8, meta: { assertion: SAMPLE.assertions[i] } };
+    })).concat([
+      { text: '用例 1 标题：GET /api/users 正常返回\n', progress: 100 }
+    ]),
+    'gen-assertion': [{ text: '基于响应（status 200）推导断言，共 4 条：\n', progress: 5 }]
+      .concat(assertLines().map(function (t, i) {
+        return { text: t, progress: Math.round(((i + 1) / 4) * 100), meta: { assertion: SAMPLE.assertions[i] } };
+      })),
+    'diagnose': [
+      { text: '开始诊断：GET /api/users/123\n', progress: 10 },
+      { text: '逐条评估 2 条期望断言 vs 实际响应…\n', progress: 30 },
+      { text: '发现 1 处失败：\n', progress: 50 },
+      { text: '  - $.name：取值不符：期望 "李雷"，实际 "韩梅梅"\n', progress: 70, meta: { failure: { target: '$.name', kind: 'value_mismatch' } } },
+      { text: '根因分类：业务变更（business_change）\n', progress: 80 },
+      { text: '理由：字段值变化但结构一致，疑似业务数据变更\n', progress: 90 },
+      { text: '建议：确认为预期业务变化后接受新断言\n', progress: 95 },
+      { text: '诊断完成。\n', progress: 100 }
+    ]
+  };
+
+  var MOCK_RESULTS = {
+    'gen-case': {
+      name: SAMPLE.case_title, source: 'ai', review_status: 'pending',
+      assertions: SAMPLE.assertions
+    },
+    'gen-assertion': { count: SAMPLE.assertions.length, assertions: SAMPLE.assertions },
+    'diagnose': SAMPLE.diagnosis
+  };
+
+  // ---------------------------------------------------------------
+  // 真实 SSE 消费（fetch + ReadableStream 手写解析，与 src/stream/client.ts 同构）
+  // ---------------------------------------------------------------
+  function parseFrame(frame) {
+    var event = 'message', id = null, dataLines = [];
+    var lines = frame.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].charAt(lines[i].length - 1) === '\r' ? lines[i].slice(0, -1) : lines[i];
+      if (line === '' || line.charAt(0) === ':') continue;
+      if (line.indexOf('event:') === 0) event = line.slice(6).trim();
+      else if (line.indexOf('data:') === 0) dataLines.push(line.slice(5).replace(/^ /, ''));
+      else if (line.indexOf('id:') === 0) id = parseInt(line.slice(3).trim(), 10);
+    }
+    if (dataLines.length === 0) return null;
+    var raw = dataLines.join('\n'), data;
+    try { data = JSON.parse(raw); } catch (e) { data = raw; }
+    return { event: event, data: data, id: id };
+  }
+
+  async function consumeRealSse(url, onEvent, signal) {
+    var res = await fetch(url, { headers: { accept: 'text/event-stream' }, signal: signal });
+    if (!res.ok) throw new Error('SSE 连接失败：HTTP ' + res.status);
+    if (!res.body) throw new Error('SSE 连接失败：响应无 body');
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buffer = '';
+    for (;;) {
+      var chunk = await reader.read();
+      if (chunk.done) break;
+      buffer += decoder.decode(chunk.value, { stream: true });
+      for (;;) {
+        var sep = buffer.indexOf('\n\n');
+        if (sep === -1) break;
+        var frame = buffer.slice(0, sep);
+        buffer = buffer.slice(sep + 2);
+        var parsed = parseFrame(frame);
+        if (parsed) onEvent(parsed);
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // 入口：按模式启动任务
+  // ---------------------------------------------------------------
+  function start(kind, urlPath) {
+    resetRun();
+    setBusy(true);
+    setState('streaming', 'connecting…');
+    if (chkReal.checked) {
+      var url = elUrl.value.replace(/\/sse\/(case|assertion|diagnose)$/, urlPath);
+      abortController = new AbortController();
+      consumeRealSse(url, handleEvent, abortController.signal).catch(function (err) {
+        if (err && err.name === 'AbortError') {
+          setState('idle', 'aborted');
+        } else {
+          setState('error', 'error');
+          elResult.style.display = 'block';
+          elResult.className = 'result-card error';
+          elResult.innerHTML = '<span class="t">连接失败</span>：' + escapeHtml(err && err.message || String(err)) +
+            '<br>真实模式需 http 端点（与服务端 src/stream/ 同协议），可先运行 scripts/verify-sse.ts 侧服务。';
+        }
+        setBusy(false);
+      });
+    } else {
+      mockAborted = false;
+      makeMockProducer(kind)(handleEvent).then(function () {
+        if (mockAborted) { setState('idle', 'aborted'); setBusy(false); }
+      });
+    }
+  }
+
+  elStop.addEventListener('click', function () {
+    if (chkReal.checked && abortController) abortController.abort();
+    else mockAborted = true;
+    setBusy(false);
+    setState('idle', 'aborted');
+  });
+
+  $('btn-case').addEventListener('click', function () { start('gen-case', '/sse/case'); });
+  $('btn-assertion').addEventListener('click', function () { start('gen-assertion', '/sse/assertion'); });
+  $('btn-diagnose').addEventListener('click', function () { start('diagnose', '/sse/diagnose'); });
+
+  chkReal.addEventListener('change', function () {
+    elUrl.disabled = !chkReal.checked;
+  });
+
+  // 自动播放钩子（URL 带 #autostart 时自动跑一轮 gen-case，供无头浏览器端到端验证）
+  if (location.hash === '#autostart') start('gen-case', '/sse/case');
+
+  // ---------------------------------------------------------------
+  // file:// 自检（供无头浏览器 dump-dom 验证：加载即跑，无 JS 错误时输出标记）
+  // ---------------------------------------------------------------
+  var errors = [];
+  window.addEventListener('error', function (e) { errors.push(e.message); });
+  (function selfcheck() {
+    var ok = true, detail = [];
+    ['btn-case', 'btn-assertion', 'btn-diagnose', 'btn-stop', 'stream', 'text',
+     'mode-real', 'sse-url', 'result', 'pfill', 'st-start', 'st-delta'].forEach(function (id) {
+      if (!$(id)) { ok = false; detail.push('missing #' + id); }
+    });
+    // 脚本结构检查：三类任务脚本存在且文案完整
+    ['gen-case', 'gen-assertion', 'diagnose'].forEach(function (k) {
+      if (!MOCK_SCRIPTS[k] || MOCK_SCRIPTS[k].length === 0) { ok = false; detail.push('missing script ' + k); }
+    });
+    // SSE 帧解析单元检查
+    var f = parseFrame('id: 1\nevent: delta\ndata: {"text":"hi"}');
+    if (!f || f.event !== 'delta' || f.data.text !== 'hi' || f.id !== 1) { ok = false; detail.push('parseFrame broken'); }
+    if (errors.length > 0) { ok = false; detail.push('js errors: ' + errors.join('; ')); }
+    var el = $('selfcheck');
+    el.setAttribute('data-ok', ok ? 'true' : 'false');
+    el.setAttribute('data-detail', detail.join(','));
+    el.textContent = 'SELFCHECK_' + (ok ? 'PASS' : 'FAIL');
+    if (!ok) console.error('[selfcheck] FAIL: ' + detail.join('; '));
+    else console.log('[selfcheck] PASS');
+  })();
+})();
+</script>
+</body>
+</html>

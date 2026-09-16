@@ -1,0 +1,16 @@
+{
+  "name": "verifyos-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VerifyOS 桌面端（Electron 最小壳 PoC，加载 Web 控制台 + 本地 token 持久化）",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "smoke": "VERIFYOS_SMOKE=1 electron .",
+    "verify": "node scripts/verify-token-store.js"
+  },
+  "devDependencies": {
+    "electron": "37.10.3"
+  }
+}

@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+/* ===== Tailwind v4 主题映射（对应 tailwind.config.ts 的 colors/fontFamily） ===== */
+@theme {
+  --color-border: hsl(var(--border));
+  --color-bg-primary: hsl(var(--bg-primary));
+  --color-bg-secondary: hsl(var(--bg-secondary));
+  --color-bg-tertiary: hsl(var(--bg-tertiary));
+  --color-fg-primary: hsl(var(--fg-primary));
+  --color-fg-secondary: hsl(var(--fg-secondary));
+  --color-fg-muted: hsl(var(--fg-muted));
+  --color-accent: hsl(var(--accent));
+  --color-accent-dim: hsl(var(--accent-dim));
+  --color-accent-line: hsl(var(--accent-line));
+  /* HTTP 方法色 */
+  --color-get: #22c55e;
+  --color-post: #3b82f6;
+  --color-put: #f59e0b;
+  --color-del: #ef4444;
+  --color-patch: #a855f7;
+  /* 场景节点色 */
+  --color-scenario-request: #22c55e;
+  --color-scenario-condition: #f97316;
+  --color-scenario-loop: #a855f7;
+  --color-scenario-wait: #71717c;
+  --color-scenario-assert: #10b981;
+  --color-scenario-ref: #06b6d4;
+  /* 字体 */
+  --font-sans: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+/* ===== 设计 token（Hoppscotch theming.ts 双属性方案的 CSS 变量版） ===== */
+:root {
+  /* 暗色主题默认 */
+  --bg-primary: 222 15% 8%;
+  --bg-secondary: 222 13% 11%;
+  --bg-tertiary: 222 12% 14%;
+  --border: 222 10% 17%;
+  --fg-primary: 228 10% 90%;
+  --fg-secondary: 228 8% 63%;
+  --fg-muted: 228 6% 45%;
+  --accent: 160 84% 39%;
+  --accent-dim: 160 84% 39% / 0.12;
+  --accent-line: 160 84% 39% / 0.35;
+}
+
+/* data-accent 九色切换（Hoppscotch #9 方案） */
+[data-accent="teal"]    { --accent: 160 84% 39%; --accent-dim: 160 84% 39% / .12; --accent-line: 160 84% 39% / .35; }
+[data-accent="blue"]    { --accent: 217 76% 53%; --accent-dim: 217 76% 53% / .12; --accent-line: 217 76% 53% / .35; }
+[data-accent="violet"]  { --accent: 258 82% 60%; --accent-dim: 258 82% 60% / .12; --accent-line: 258 82% 60% / .35; }
+[data-accent="rose"]    { --accent: 330 78% 52%; --accent-dim: 330 78% 52% / .12; --accent-line: 330 78% 52% / .35; }
+[data-accent="amber"]   { --accent: 38 92% 50%;  --accent-dim: 38 92% 50% / .12;  --accent-line: 38 92% 50% / .35; }
+[data-accent="green"]   { --accent: 142 71% 45%; --accent-dim: 142 71% 45% / .12; --accent-line: 142 71% 45% / .35; }
+[data-accent="cyan"]    { --accent: 190 84% 45%; --accent-dim: 190 84% 45% / .12; --accent-line: 190 84% 45% / .35; }
+[data-accent="red"]     { --accent: 0 84% 55%;   --accent-dim: 0 84% 55% / .12;   --accent-line: 0 84% 55% / .35; }
+[data-accent="orange"]  { --accent: 25 95% 53%;  --accent-dim: 25 95% 53% / .12;  --accent-line: 25 95% 53% / .35; }
+
+body {
+  background: hsl(var(--bg-primary));
+  color: hsl(var(--fg-primary));
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+code, pre, .mono { font-family: var(--font-mono); }
+
+/* ===== 组件级 utility classes ===== */
+@layer components {
+  /* 卡片容器：次级背景 + 圆角边框 */
+  .card {
+    background: hsl(var(--bg-secondary));
+    border: 1px solid hsl(var(--border));
+    border-radius: 10px;
+  }
+
+  /* 暗色输入框 */
+  .input {
+    width: 100%;
+    background: hsl(var(--bg-tertiary));
+    border: 1px solid hsl(var(--border));
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    color: hsl(var(--fg-primary));
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .input::placeholder { color: hsl(var(--fg-muted)); }
+  .input:focus {
+    border-color: hsl(var(--accent));
+    box-shadow: 0 0 0 2px hsl(var(--accent-dim));
+  }
+
+  /* 小徽章（默认灰） */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.6;
+    background: hsl(var(--bg-tertiary));
+    color: hsl(var(--fg-secondary));
+    border: 1px solid hsl(var(--border));
+    white-space: nowrap;
+  }
+  /* HTTP 方法色徽章 */
+  .badge-get    { background: #22c55e1f; color: #22c55e; border-color: #22c55e42; }
+  .badge-post   { background: #3b82f61f; color: #3b82f6; border-color: #3b82f642; }
+  .badge-put    { background: #f59e0b1f; color: #f59e0b; border-color: #f59e0b42; }
+  .badge-delete { background: #ef44441f; color: #ef4444; border-color: #ef444442; }
+  .badge-patch  { background: #a855f71f; color: #a855f7; border-color: #a855f742; }
+  /* 状态徽章：通过绿 / 失败红 / 待定灰 */
+  .badge-pass   { background: #22c55e1f; color: #22c55e; border-color: #22c55e42; }
+  .badge-fail   { background: #ef44441f; color: #ef4444; border-color: #ef444442; }
+  .badge-pending{ background: hsl(var(--bg-tertiary)); color: hsl(var(--fg-muted)); border-color: hsl(var(--border)); }
+  /* accent 徽章（跟随主题色） */
+  .badge-accent { background: hsl(var(--accent-dim)); color: hsl(var(--accent)); border-color: hsl(var(--accent-line)); }
+
+  /* 分隔线 */
+  .separator-h { height: 1px; width: 100%; background: hsl(var(--border)); }
+  .separator-v { width: 1px; height: 100%; background: hsl(var(--border)); }
+}
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
