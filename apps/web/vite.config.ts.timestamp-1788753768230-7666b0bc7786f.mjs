@@ -1,0 +1,18 @@
+// vite.config.ts
+import { defineConfig } from "file:///Users/xielaoban/Documents/temp/verifyos/node_modules/vite/dist/node/index.js";
+import react from "file:///Users/xielaoban/Documents/temp/verifyos/node_modules/@vitejs/plugin-react/dist/index.js";
+var vite_config_default = defineConfig({
+  plugins: [react()],
+  server: {
+    port: Number(process.env.WEB_PORT || 5173),
+    proxy: {
+      // 127.0.0.1 显式 IPv4：localhost 在 Node 17+ 可能解析 ::1 导致 proxy 连接被拒
+      "/api": "http://127.0.0.1:8080",
+      "/ws": { target: "http://127.0.0.1:8080", ws: true }
+    }
+  }
+});
+export {
+  vite_config_default as default
+};
+//# sourceMappingURL=data:application/json;base64,ewogICJ2ZXJzaW9uIjogMywKICAic291cmNlcyI6IFsidml0ZS5jb25maWcudHMiXSwKICAic291cmNlc0NvbnRlbnQiOiBbImNvbnN0IF9fdml0ZV9pbmplY3RlZF9vcmlnaW5hbF9kaXJuYW1lID0gXCIvVXNlcnMveGllbGFvYmFuL0RvY3VtZW50cy90ZW1wL3ZlcmlmeW9zL2FwcHMvd2ViXCI7Y29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2ZpbGVuYW1lID0gXCIvVXNlcnMveGllbGFvYmFuL0RvY3VtZW50cy90ZW1wL3ZlcmlmeW9zL2FwcHMvd2ViL3ZpdGUuY29uZmlnLnRzXCI7Y29uc3QgX192aXRlX2luamVjdGVkX29yaWdpbmFsX2ltcG9ydF9tZXRhX3VybCA9IFwiZmlsZTovLy9Vc2Vycy94aWVsYW9iYW4vRG9jdW1lbnRzL3RlbXAvdmVyaWZ5b3MvYXBwcy93ZWIvdml0ZS5jb25maWcudHNcIjtpbXBvcnQgeyBkZWZpbmVDb25maWcgfSBmcm9tICd2aXRlJztcbmltcG9ydCByZWFjdCBmcm9tICdAdml0ZWpzL3BsdWdpbi1yZWFjdCc7XG5cbmV4cG9ydCBkZWZhdWx0IGRlZmluZUNvbmZpZyh7XG4gIHBsdWdpbnM6IFtyZWFjdCgpXSxcbiAgc2VydmVyOiB7XG4gICAgcG9ydDogTnVtYmVyKHByb2Nlc3MuZW52LldFQl9QT1JUIHx8IDUxNzMpLFxuICAgIHByb3h5OiB7XG4gICAgICAvLyAxMjcuMC4wLjEgXHU2NjNFXHU1RjBGIElQdjRcdUZGMUFsb2NhbGhvc3QgXHU1NzI4IE5vZGUgMTcrIFx1NTNFRlx1ODBGRFx1ODlFM1x1Njc5MCA6OjEgXHU1QkZDXHU4MUY0IHByb3h5IFx1OEZERVx1NjNBNVx1ODhBQlx1NjJEMlxuICAgICAgJy9hcGknOiAnaHR0cDovLzEyNy4wLjAuMTo4MDgwJyxcbiAgICAgICcvd3MnOiB7IHRhcmdldDogJ2h0dHA6Ly8xMjcuMC4wLjE6ODA4MCcsIHdzOiB0cnVlIH0sXG4gICAgfSxcbiAgfSxcbn0pO1xuIl0sCiAgIm1hcHBpbmdzIjogIjtBQUFxVSxTQUFTLG9CQUFvQjtBQUNsVyxPQUFPLFdBQVc7QUFFbEIsSUFBTyxzQkFBUSxhQUFhO0FBQUEsRUFDMUIsU0FBUyxDQUFDLE1BQU0sQ0FBQztBQUFBLEVBQ2pCLFFBQVE7QUFBQSxJQUNOLE1BQU0sT0FBTyxRQUFRLElBQUksWUFBWSxJQUFJO0FBQUEsSUFDekMsT0FBTztBQUFBO0FBQUEsTUFFTCxRQUFRO0FBQUEsTUFDUixPQUFPLEVBQUUsUUFBUSx5QkFBeUIsSUFBSSxLQUFLO0FBQUEsSUFDckQ7QUFBQSxFQUNGO0FBQ0YsQ0FBQzsiLAogICJuYW1lcyI6IFtdCn0K

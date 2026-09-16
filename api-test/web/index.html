@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>api-test 工作台</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部工具条 -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo"></span>
+        <span class="name">api-test</span>
+        <span class="ver">v0.1</span>
+      </div>
+      <nav class="main-tabs" id="mainTabs">
+        <button class="tab active" data-view="api">API</button>
+        <button class="tab" data-view="cases">测试用例</button>
+        <button class="tab" data-view="coverage">覆盖率</button>
+        <button class="tab" data-view="scenario">场景</button>
+      </nav>
+      <div class="topbar-right">
+        <div class="env-switch" id="envSwitch">
+          <button class="env active" data-env="dev">dev</button>
+          <button class="env" data-env="prod">prod</button>
+        </div>
+        <button class="icon-btn theme-btn" id="themeBtn" title="主题切换">☾</button>
+        <a class="icon-btn" href="stream-demo.html" title="AI 流式生成演示" style="display:inline-flex;align-items:center;text-decoration:none;color:inherit;font-size:12px;">⚡流式</a>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- 左栏：API 树 -->
+      <aside class="sidebar">
+        <div class="side-head">
+          <span class="side-title">API 清单</span>
+          <span class="side-count" id="apiCount"></span>
+        </div>
+        <div class="search-box">
+          <input id="apiSearch" type="text" placeholder="搜索路径 / 方法 / 标签" />
+        </div>
+        <div class="api-tree" id="apiTree"></div>
+      </aside>
+
+      <!-- 中栏：主工作区 -->
+      <main class="workspace" id="workspace"></main>
+
+      <!-- 右栏：AI 上下文面板 -->
+      <aside class="context-panel">
+        <div class="side-head">
+          <span class="side-title">AI 助手</span>
+          <span class="side-badge">预览</span>
+        </div>
+        <div class="ctx-selected" id="ctxSelected"></div>
+        <div class="ctx-actions">
+          <button class="ctx-btn" data-demo="recordToCase">⚡ 从录制生成用例</button>
+          <button class="ctx-btn" data-demo="edgeCases">🧪 生成 edge-case</button>
+          <button class="ctx-btn" data-demo="diagnosis">🔍 AI 断言诊断</button>
+        </div>
+        <div class="ctx-result" id="ctxResult">
+          <div class="ctx-empty">选择左侧 API 后，点击上方按钮预览引擎能力（当前为演示数据）</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

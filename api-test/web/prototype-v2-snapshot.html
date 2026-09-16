@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>api-test 工作台 · 高保真原型 v2</title>
+<style>
+  :root{
+    --bg0:#0f0f12; --bg1:#151519; --bg2:#1b1b21; --bg3:#222228;
+    --line:#2a2a32; --line2:#35353f;
+    --txt:#e4e4e9; --txt2:#a1a1ac; --txt3:#71717c; --txt4:#52525b;
+    --acc:#10b981; --acc-dim:rgba(16,185,129,.14); --acc-line:rgba(16,185,129,.4);
+    --get:#22c55e; --post:#3b82f6; --put:#f59e0b; --del:#ef4444; --patch:#a855f7;
+    --cond:#f97316; --loop:#a855f7; --wait:#71717c; --asrt:#10b981; --ref:#06b6d4;
+    --mono:'SF Mono','JetBrains Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg0); color:var(--txt); font:13px/1.6 -apple-system,'PingFang SC','Microsoft YaHei',sans-serif; height:100vh; overflow:hidden; display:flex; flex-direction:column;}
+  button{cursor:pointer; font:inherit; color:inherit; background:none; border:none;}
+  ::-webkit-scrollbar{width:8px; height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line2); border-radius:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+  /* ===== 顶栏 ===== */
+  .top{height:44px; display:flex; align-items:center; gap:10px; padding:0 14px; background:var(--bg1); border-bottom:1px solid var(--line); flex-shrink:0;}
+  .logo{font-weight:600; color:var(--acc); font-size:14px;}
+  .logo i{font-style:normal;}
+  .rec{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--txt2); background:var(--bg2); border:1px solid var(--line); border-radius:6px; padding:3px 10px;}
+  .rec .dot{width:8px; height:8px; border-radius:50%; background:var(--txt4);}
+  .rec.on .dot{background:#ef4444; animation:pulse 1.2s infinite;}
+  .rec.on{color:var(--txt); border-color:rgba(239,68,68,.4);}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .top .sel{background:var(--bg2); border:1px solid var(--line); border-radius:6px; padding:3px 10px; font-size:12px; color:var(--txt2);}
+  .top .sp{flex:1;}
+  .btn-ai{color:var(--acc); border:1px solid var(--acc-line); background:var(--acc-dim); border-radius:6px; padding:4px 14px; font-size:12px;}
+  .btn-ai:hover{background:rgba(16,185,129,.22);}
+
+  /* ===== 主体三栏 ===== */
+  .main{flex:1; display:flex; min-height:0;}
+  /* 左栏 */
+  .left{width:232px; background:var(--bg1); border-right:1px solid var(--line); display:flex; flex-direction:column; flex-shrink:0;}
+  .left .search{margin:10px; display:flex; align-items:center; gap:6px; background:var(--bg2); border:1px solid var(--line); border-radius:6px; padding:5px 8px; color:var(--txt3); font-size:12px;}
+  .left .search input{flex:1; background:none; border:none; outline:none; color:var(--txt); font:inherit;}
+  .tree{flex:1; overflow-y:auto; padding:0 8px 10px;}
+  .grp{display:flex; align-items:center; gap:6px; color:var(--txt3); font-size:11px; padding:8px 4px 4px; letter-spacing:.3px;}
+  .grp b{color:var(--txt2); font-weight:500;}
+  .grp .cov{margin-left:auto; font-size:10px;}
+  .api{display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:5px; cursor:pointer; font-family:var(--mono); font-size:11.5px; color:var(--txt2);}
+  .api:hover{background:var(--bg2);}
+  .api.sel{background:var(--acc-dim); color:var(--txt);}
+  .api .m{font-size:9.5px; width:36px; flex-shrink:0;}
+  .m.GET{color:var(--get);} .m.POST{color:var(--post);} .m.PUT{color:var(--put);} .m.DELETE{color:var(--del);} .m.PATCH{color:var(--patch);}
+  .api .u{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .api .st{width:7px; height:7px; border-radius:50%; flex-shrink:0;}
+  .st.full{background:var(--get);} .st.part{background:#eab308;} .st.none{background:var(--del);}
+  .scn-grp{margin-top:12px; border-top:1px solid var(--line); padding-top:10px;}
+  .scn{display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:5px; cursor:pointer; font-size:12px; color:var(--txt2);}
+  .scn:hover{background:var(--bg2);}
+  .scn.sel{background:var(--acc-dim); color:var(--txt);}
+  .scn .fl{margin-left:auto; font-size:10px; color:var(--del);}
+
+  /* 中栏 */
+  .mid{flex:1; display:flex; flex-direction:column; min-width:0;}
+  .tabs{display:flex; align-items:center; background:var(--bg1); border-bottom:1px solid var(--line); padding:0 8px; flex-shrink:0;}
+  .tab{display:flex; align-items:center; gap:6px; padding:9px 14px; font-size:12px; color:var(--txt3); border-bottom:2px solid transparent; cursor:pointer;}
+  .tab:hover{color:var(--txt2);}
+  .tab.on{color:var(--txt); border-bottom-color:var(--acc);}
+  .tab .x{font-size:10px; opacity:0; margin-left:2px;}
+  .tab:hover .x{opacity:.6;}
+  .tab .bdg{font-size:10px; background:var(--bg3); border-radius:8px; padding:0 6px; color:var(--txt2);}
+  .tab .bdg.w{background:rgba(234,179,8,.15); color:#eab308;}
+  .tabs .add{color:var(--txt3); font-size:16px; padding:6px 10px;}
+  .tabs .add:hover{color:var(--txt);}
+  .envsel{margin-left:auto; display:flex; gap:6px; padding-right:8px;}
+  .envsel .sel{background:var(--bg2); border:1px solid var(--line); border-radius:5px; padding:2px 8px; font-size:11px; color:var(--txt2);}
+
+  .subtabs{display:flex; gap:2px; padding:8px 14px 0; flex-shrink:0;}
+  .sub{padding:4px 12px; font-size:11.5px; color:var(--txt3); background:var(--bg2); border:1px solid var(--line); border-bottom:none; border-radius:6px 6px 0 0; cursor:pointer;}
+  .sub.on{color:var(--txt); background:var(--bg3);}
+  .sub .ct{font-size:10px; margin-left:3px; color:var(--eab308,#eab308);}
+  .sub.ai{color:var(--acc); border-color:var(--acc-line); background:var(--acc-dim);}
+
+  .urlbar{margin:10px 14px 0; display:flex; align-items:center; gap:8px; background:var(--bg2); border:1px solid var(--line); border-radius:8px; padding:8px 12px;}
+  .urlbar .mth{font-family:var(--mono); font-size:12px; font-weight:600; color:var(--post);}
+  .urlbar .url{flex:1; font-family:var(--mono); font-size:12.5px; color:var(--txt);}
+  .urlbar .url .var{color:var(--acc);}
+  .urlbar .send{background:var(--acc); color:#06281d; font-weight:600; border-radius:6px; padding:5px 16px; font-size:12px;}
+  .urlbar .curl{font-size:11px; color:var(--txt3); border:1px dashed var(--line2); border-radius:5px; padding:3px 8px;}
+  .curl-hint{margin:4px 14px 0; font-size:10.5px; color:var(--txt4);}
+  .curl-hint.show{color:var(--acc);}
+
+  .content{flex:1; overflow-y:auto; padding:12px 14px;}
+
+  /* 断言表格 */
+  .atable{width:100%; border-collapse:collapse; font-size:12px; margin-top:10px;}
+  .atable th{text-align:left; color:var(--txt3); font-weight:500; font-size:11px; padding:6px 8px; border-bottom:1px solid var(--line);}
+  .atable td{padding:6px 8px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11.5px;}
+  .atable .op{color:var(--txt2);}
+  .atable .ok{color:var(--get);} .atable .ng{color:var(--del); background:rgba(239,68,68,.06);}
+  .atable .ig{color:var(--txt4); font-style:italic;}
+  .diff{margin-top:8px; background:var(--bg1); border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-family:var(--mono); font-size:11px;}
+  .diff .row{display:flex; gap:10px;}
+  .diff .exp{color:var(--get); flex:1;}
+  .diff .act{color:var(--del); flex:1;}
+
+  /* 步骤树 */
+  .steps{margin-top:10px; font-family:var(--mono); font-size:12px;}
+  .stnode{position:relative; padding:3px 0 3px 0;}
+  .strow{display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:6px; cursor:pointer;}
+  .strow:hover{background:var(--bg2);}
+  .strow.sel{background:var(--acc-dim);}
+  .strow.fail{background:rgba(239,68,68,.08); outline:1px solid rgba(239,68,68,.3);}
+  .strow .ico{width:18px; text-align:center; font-size:12px; flex-shrink:0;}
+  .ico.request{color:var(--get);} .ico.condition{color:var(--cond);} .ico.loop{color:var(--loop);} .ico.wait{color:var(--wait);} .ico.assert{color:var(--asrt);} .ico.ref{color:var(--ref);}
+  .strow .nm{flex:1; color:var(--txt2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .strow.fail .nm{color:var(--txt);}
+  .strow .ext{font-size:10px; color:var(--acc); flex-shrink:0;}
+  .strow .meta{font-size:10px; color:var(--txt3); flex-shrink:0; display:flex; gap:8px;}
+  .strow .meta .fail{color:var(--del);}
+  .strow .sdot{width:8px; height:8px; border-radius:50%; flex-shrink:0;}
+  .sdot.pass{background:var(--get);} .sdot.fail{background:var(--del); box-shadow:0 0 6px rgba(239,68,68,.6);} .sdot.skip{background:var(--txt4);} .sdot.run{background:#eab308; animation:pulse .9s infinite;}
+  .stkids{padding-left:22px; border-left:1px solid var(--line); margin-left:9px;}
+  .stkids .stnode::before{content:''; position:absolute; left:-13px; top:14px; width:13px; height:1px; background:var(--line);}
+  .twist{width:14px; text-align:center; color:var(--txt3); font-size:9px; flex-shrink:0; transition:transform .15s;}
+  .stnode.closed .twist{transform:rotate(-90deg);}
+  .stnode.closed > .stkids{display:none;}
+  .stbar{display:flex; align-items:center; gap:10px; margin-top:12px;}
+  .run{background:var(--acc); color:#06281d; font-weight:600; border-radius:6px; padding:6px 18px; font-size:12.5px;}
+  .addstep{border:1px solid var(--line2); border-radius:6px; padding:6px 14px; font-size:12px; color:var(--txt2);}
+  .addstep:hover{border-color:var(--acc-line); color:var(--acc);}
+  .summary{margin-left:auto; font-size:12px; color:var(--txt2);}
+  .summary .p{color:var(--get);} .summary .f{color:var(--del);} .summary .s{color:var(--txt3);}
+
+  /* 覆盖率 */
+  .cov-hero{display:flex; gap:14px; margin:6px 0 14px;}
+  .cov-card{flex:1; background:var(--bg2); border-radius:8px; padding:12px 14px;}
+  .cov-card .l{font-size:11px; color:var(--txt3);}
+  .cov-card .v{font-size:26px; font-weight:600; margin-top:2px;}
+  .cov-card .v.g{color:var(--get);} .cov-card .v.y{color:#eab308;} .cov-card .v.r{color:var(--del);}
+  .covrow{display:flex; align-items:center; gap:10px; padding:6px 4px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11.5px;}
+  .covrow .m{font-size:9.5px; width:44px;}
+  .covrow .p{flex:1; color:var(--txt2);}
+  .covrow .dots{display:flex; gap:4px;}
+  .covrow .cd{width:26px; height:16px; border-radius:3px; font-size:9.5px; display:flex; align-items:center; justify-content:center; background:var(--bg3); color:var(--txt4);}
+  .covrow .cd.ok{background:rgba(34,197,94,.15); color:var(--get);}
+  .covrow .cd.no{background:rgba(239,68,68,.1); color:rgba(239,68,68,.5);}
+
+  /* 右栏 */
+  .right{width:240px; background:var(--bg1); border-left:1px solid var(--line); padding:12px; flex-shrink:0; overflow-y:auto;}
+  .right h4{font-size:11px; color:var(--txt3); font-weight:500; margin:14px 0 6px; letter-spacing:.3px;}
+  .right h4:first-child{margin-top:0;}
+  .ctx{background:var(--bg2); border:1px solid var(--line); border-radius:6px; padding:8px 10px; font-family:var(--mono); font-size:10.5px; color:var(--txt2); line-height:1.8;}
+  .ai-entry{display:flex; align-items:center; gap:8px; background:var(--acc-dim); border:1px solid var(--acc-line); border-radius:6px; padding:7px 10px; margin-bottom:6px; font-size:12px; color:var(--txt);}
+  .ai-entry:hover{background:rgba(16,185,129,.2);}
+  .ai-entry .ico{color:var(--acc);}
+  .ai-entry .hot{margin-left:auto; width:7px; height:7px; border-radius:50%; background:var(--del);}
+
+  /* ===== AI 抽屉 ===== */
+  .drawer-mask{position:fixed; inset:0; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .2s; z-index:40;}
+  .drawer-mask.show{opacity:1; pointer-events:auto;}
+  .drawer{position:fixed; top:0; right:-560px; width:560px; height:100vh; background:var(--bg1); border-left:1px solid var(--line); z-index:41; transition:right .25s; display:flex; flex-direction:column;}
+  .drawer.show{right:0;}
+  .dr-head{display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line);}
+  .dr-head .t{font-size:14px; font-weight:600; color:var(--acc);}
+  .dr-head .model{margin-left:auto; background:var(--bg2); border:1px solid var(--line); border-radius:5px; padding:2px 10px; font-size:11px; color:var(--txt2);}
+  .dr-head .cls{color:var(--txt3); font-size:18px;}
+  .dr-ctx{padding:10px 16px; background:var(--bg2); border-bottom:1px solid var(--line); font-size:11.5px; color:var(--txt2);}
+  .dr-ctx b{color:var(--txt); font-weight:500;}
+  .dr-ctx .ms{margin-top:6px; display:flex; gap:6px; flex-wrap:wrap;}
+  .chip{font-size:10.5px; border:1px solid var(--line2); border-radius:10px; padding:1px 9px; color:var(--txt3); cursor:pointer;}
+  .chip.on{border-color:var(--acc-line); background:var(--acc-dim); color:var(--acc);}
+  .dr-body{flex:1; overflow-y:auto; padding:14px 16px;}
+  .msg{margin-bottom:14px; max-width:92%;}
+  .msg.user{margin-left:auto; background:var(--bg3); border-radius:10px 10px 2px 10px; padding:8px 12px; font-size:12.5px;}
+  .msg.ai{color:var(--txt); font-size:12.5px; line-height:1.7;}
+  .msg.ai .cap{color:var(--txt3); font-size:11px; margin-bottom:8px;}
+  .gcase{border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin-bottom:6px; display:flex; gap:8px; align-items:flex-start; cursor:pointer;}
+  .gcase:hover{border-color:var(--acc-line);}
+  .gcase.pick{border-color:var(--acc); background:var(--acc-dim);}
+  .gcase .ck{width:14px; height:14px; border:1.5px solid var(--txt3); border-radius:3px; flex-shrink:0; margin-top:2px; position:relative;}
+  .gcase.pick .ck{border-color:var(--acc); background:var(--acc);}
+  .gcase.pick .ck::after{content:'✓'; position:absolute; inset:0; color:#06281d; font-size:10px; display:flex; align-items:center; justify-content:center;}
+  .gcase .bd{flex:1;}
+  .gcase .tt{font-size:12px; color:var(--txt);}
+  .gcase .mt{font-family:var(--mono); font-size:10.5px; color:var(--txt3); margin-top:2px;}
+  .gcase .how{font-size:9.5px; color:var(--acc); border:1px solid var(--acc-line); border-radius:8px; padding:0 6px; flex-shrink:0;}
+  .dr-foot{border-top:1px solid var(--line); padding:12px 16px; display:flex; gap:10px;}
+  .dr-in{flex:1; background:var(--bg2); border:1px solid var(--line); border-radius:8px; padding:8px 12px; color:var(--txt3); font-size:12.5px;}
+  .dr-go{background:var(--acc); color:#06281d; font-weight:600; border-radius:8px; padding:8px 18px;}
+  .dr-act{display:flex; gap:8px; margin-top:4px;}
+  .dr-ok{flex:1; background:var(--acc); color:#06281d; font-weight:600; border-radius:6px; padding:7px; font-size:12.5px; text-align:center;}
+  .dr-no{flex:1; border:1px solid var(--line2); border-radius:6px; padding:7px; font-size:12.5px; text-align:center; color:var(--txt2);}
+
+  /* 录制面板 */
+  .recpanel{position:fixed; left:0; top:44px; bottom:0; width:300px; background:var(--bg1); border-right:1px solid var(--line); z-index:35; transform:translateX(-110%); transition:transform .25s; display:flex; flex-direction:column; box-shadow:4px 0 20px rgba(0,0,0,.3);}
+  .recpanel.show{transform:none;}
+  .rp-head{padding:12px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center;}
+  .rp-head b{font-size:13px; color:var(--txt); font-weight:500;}
+  .rp-head .n{margin-left:auto; color:var(--del); font-size:11px;}
+  .rp-body{flex:1; overflow-y:auto; padding:10px 14px;}
+  .rp-dom{margin-bottom:10px;}
+  .rp-dom .h{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--txt2); margin-bottom:4px;}
+  .rp-dom .h .ck{width:13px; height:13px; border:1.5px solid var(--txt3); border-radius:3px; cursor:pointer;}
+  .rp-dom .h .ck.on{background:var(--acc); border-color:var(--acc);}
+  .rp-dom .h .ct{margin-left:auto; color:var(--txt3); font-size:10px;}
+  .rp-row{display:flex; align-items:center; gap:6px; padding:3px 6px; margin-left:19px; font-family:var(--mono); font-size:10.5px; color:var(--txt3); border-left:1px solid var(--line);}
+  .rp-row .lv{font-size:9px; width:44px;}
+  .lv.top{color:var(--acc);} .lv.ajax{color:#06b6d4;} .lv.emb{color:var(--txt4);}
+  .rp-foot{border-top:1px solid var(--line); padding:10px 14px;}
+  .rp-gen{width:100%; background:var(--acc); color:#06281d; font-weight:600; border-radius:6px; padding:8px; font-size:12.5px;}
+
+  .src{font-size:9.5px; color:var(--txt4); margin-top:6px; line-height:1.5;}
+
+  /* ===== 空态引导卡（新用户三条上手路径） ===== */
+  .empty-wrap{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; background:radial-gradient(600px 300px at 50% 38%, rgba(16,185,129,.05), transparent 70%);}
+  .empty-title{font-size:18px; font-weight:600; color:var(--txt);}
+  .empty-sub{font-size:12px; color:var(--txt3); margin-top:4px; margin-bottom:22px;}
+  .ecards{display:flex; gap:14px;}
+  .ecard{position:relative; width:216px; background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:18px 16px 14px; cursor:pointer; transition:border-color .15s, transform .15s;}
+  .ecard:hover{border-color:var(--acc-line); transform:translateY(-2px);}
+  .ecard.hot{border-color:var(--acc-line); background:linear-gradient(180deg, var(--acc-dim), var(--bg2) 55%);}
+  .ecard .ebadge{position:absolute; top:-9px; left:14px; font-size:10px; color:#06281d; background:var(--acc); border-radius:8px; padding:1px 8px; font-weight:600;}
+  .ecard .eico{font-size:22px; color:var(--acc); margin-bottom:8px;}
+  .ecard .ett{font-size:13px; font-weight:600; color:var(--txt); margin-bottom:6px;}
+  .ecard .eds{font-size:11px; color:var(--txt2); line-height:1.6; min-height:52px;}
+  .ecard .ego{font-size:11.5px; color:var(--acc); font-weight:500;}
+  .ecard:hover .ego{text-decoration:underline;}
+  .empty-src{margin-top:26px;}
+
+  /* ===== spec 导入弹窗 ===== */
+  .spec-mask{position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:50; display:none; align-items:center; justify-content:center;}
+  .spec-mask.show{display:flex;}
+  .spec-modal{width:440px; background:var(--bg1); border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 40px rgba(0,0,0,.5); overflow:hidden;}
+  .sp-head{display:flex; align-items:center; padding:14px 18px; border-bottom:1px solid var(--line);}
+  .sp-head b{font-size:14px; font-weight:600;}
+  .sp-head .cls{margin-left:auto; color:var(--txt3); font-size:16px;}
+  .sp-body{padding:16px 18px;}
+  .sp-drop{border:1.5px dashed var(--line2); border-radius:8px; padding:22px 14px; text-align:center; color:var(--txt3); font-size:12px; cursor:pointer; transition:border-color .15s;}
+  .sp-drop:hover{border-color:var(--acc-line); color:var(--txt2);}
+  .sp-drop b{color:var(--acc); font-weight:500;}
+  .sp-or{display:flex; align-items:center; gap:10px; color:var(--txt4); font-size:10.5px; margin:12px 0;}
+  .sp-or::before,.sp-or::after{content:''; flex:1; height:1px; background:var(--line);}
+  .sp-urlrow{display:flex; gap:8px;}
+  .sp-url{flex:1; background:var(--bg2); border:1px solid var(--line); border-radius:6px; padding:7px 10px; color:var(--txt); font:12px var(--mono); outline:none;}
+  .sp-url:focus{border-color:var(--acc-line);}
+  .sp-note{margin-top:12px; font-size:10.5px; color:var(--txt3); line-height:1.7; background:var(--bg2); border-radius:6px; padding:8px 10px;}
+  .sp-done{padding:26px 18px; text-align:center; font-size:12.5px; color:var(--txt2); line-height:2;}
+  .sp-done .ok-big{color:var(--acc); font-size:15px; font-weight:600;}
+  .sp-foot{border-top:1px solid var(--line); padding:12px 18px; display:flex; gap:10px;}
+  .sp-ok{flex:1; background:var(--acc); color:#06281d; font-weight:600; border-radius:6px; padding:8px; font-size:12.5px; text-align:center;}
+  .sp-no{flex:1; border:1px solid var(--line2); border-radius:6px; padding:8px; font-size:12.5px; text-align:center; color:var(--txt2);}
+
+  /* 手写请求：可编辑 URL 输入框 */
+  .urlbar .urlin{flex:1; background:none; border:none; outline:none; color:var(--txt); font:12.5px var(--mono);}
+  .urlbar .urlin::placeholder{color:var(--txt4);}
+  .resp-empty{margin-top:18px; border:1px dashed var(--line2); border-radius:8px; padding:26px; text-align:center; color:var(--txt4); font-size:11.5px;}
+</style>
+</head>
+<body>
+
+<!-- ============ 顶栏 ============ -->
+<div class="top">
+  <span class="logo">◐ api<i>·</i>test</span>
+  <button class="rec" id="recToggle" title="全局录制开关（独有差异化）"><span class="dot"></span> 录制 · 待开启</button>
+  <button class="sel" onclick="alert('环境：dev / staging / prod（MeterSphere #16 环境常驻手边）')">环境: dev ▾</button>
+  <button class="sel" onclick="alert('模型双层配置 #28：平台预设 + 个人自带 key')">模型: glm-4.6 ▾</button>
+  <span class="sp"></span>
+  <button class="btn-ai" id="aiBtn">AI 助手 ⌘J</button>
+</div>
+
+<div class="main">
+  <!-- ============ 左栏：API 资产树 + 场景 ============ -->
+  <div class="left">
+    <div class="search">🔍 <input placeholder="搜索 API / 场景" id="q"> <span style="font-size:10px;color:var(--txt4)">⌘K</span></div>
+    <div class="tree" id="tree"></div>
+  </div>
+
+  <!-- ============ 中栏：tab 文档 + 视图 ============ -->
+  <div class="mid">
+    <div class="tabs" id="tabs"></div>
+    <div id="view" style="display:flex;flex-direction:column;flex:1;min-height:0;"></div>
+  </div>
+
+  <!-- ============ 右栏：上下文 + AI 入口 ============ -->
+  <div class="right" id="right"></div>
+</div>
+
+<!-- ============ 录制面板（#20 按域勾选） ============ -->
+<div class="recpanel" id="recpanel">
+  <div class="rp-head"><b>录制会话</b><span class="n">27 条 · 增长中</span></div>
+  <div class="rp-body" id="rpBody"></div>
+  <div class="rp-foot"><button class="rp-gen" onclick="openAI('gen')">从勾选流量生成用例 →</button></div>
+</div>
+
+<!-- ============ spec 导入弹窗（空态路径②） ============ -->
+<div class="spec-mask" id="specMask">
+  <div class="spec-modal">
+    <div class="sp-head"><b>导入 OpenAPI 文档</b><button class="cls" id="spClose">✕</button></div>
+    <div class="sp-body" id="spBody">
+      <div class="sp-drop" onclick="specDone()">拖拽 <b>openapi.json / .yaml</b> 到这里，或 <b>点击选择文件</b></div>
+      <div class="sp-or">或</div>
+      <div class="sp-urlrow">
+        <input class="sp-url" id="spUrl" placeholder="https://api.example.com/openapi.json" />
+        <button class="sp-ok" style="flex:0 0 auto;padding:7px 14px" onclick="specDone()">导入</button>
+      </div>
+      <div class="sp-note">导入后：解析 operation → 进 API inventory → spec 派生测试（happy-path + edge-case 规则生成，A6）</div>
+    </div>
+    <div class="sp-foot" id="spFoot">
+      <button class="sp-ok" onclick="specDone()">导入并派生测试</button>
+      <button class="sp-no" onclick="closeSpec()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AI 抽屉（#23/#24/#26） ============ -->
+<div class="drawer-mask" id="mask"></div>
+<div class="drawer" id="drawer">
+  <div class="dr-head">
+    <span class="t">AI 助手</span>
+    <button class="model">glm-4.6 ▾</button>
+    <button class="cls" id="drClose">✕</button>
+  </div>
+  <div class="dr-ctx" id="drCtx"></div>
+  <div class="dr-body" id="drBody"></div>
+  <div class="dr-foot" id="drFoot"></div>
+</div>
+
+<script>
+/* ================= 数据（对齐 api-test 引擎字段） ================= */
+const APIS = [
+  {g:'users', cov:'4/5', items:[
+    {id:'a1', m:'GET', u:'/users', st:'full'},
+    {id:'a2', m:'GET', u:'/users/:id', st:'part', sel:true},
+    {id:'a3', m:'POST', u:'/users', st:'none'},
+    {id:'a4', m:'PUT', u:'/users/:id', st:'part'},
+    {id:'a5', m:'DELETE', u:'/users/:id', st:'full'},
+  ]},
+  {g:'auth', cov:'1/1', items:[
+    {id:'a6', m:'POST', u:'/login', st:'full'},
+  ]},
+  {g:'orders', cov:'2/4', items:[
+    {id:'a7', m:'POST', u:'/orders', st:'none'},
+    {id:'a8', m:'GET', u:'/orders/:id', st:'full'},
+    {id:'a9', m:'GET', u:'/orders', st:'part'},
+    {id:'a10', m:'DELETE', u:'/orders/:id', st:'none'},
+  ]},
+];
+const SCNS = [
+  {id:'s1', n:'下单流程', fail:2},
+  {id:'s2', n:'登录回归'},
+];
+const ASSERTS = [
+  {t:'$.status', op:'eq', e:'201', a:'201', m:'ok'},
+  {t:'$.data.id', op:'exists', e:'', a:'存在', m:'ok'},
+  {t:'$.data.amount', op:'eq', e:'99.00', a:'0.00', m:'ng'},
+  {t:'$.created_at', op:'ignore', e:'时间戳', a:'—', m:'ig'},
+];
+const STEPS = [
+  {id:1, ty:'request', nm:'登录获取 token', ico:'●', st:'pass', meta:'200 · 120ms', ext:'token ← $.data.token'},
+  {id:2, ty:'loop', nm:'循环下单 ×3', ico:'⟳', meta:'3 轮', kids:[
+    {id:21, ty:'request', nm:'查询余额', ico:'●', st:'pass', meta:'200'},
+    {id:22, ty:'condition', nm:'余额充足？', ico:'◇', kids:[
+      {id:221, ty:'request', nm:'创建订单', ico:'●', st:'fail', meta:'轮1✓ 轮2✗ 轮3✓', fail:'断言 $.status=201 实际 500（轮2）'},
+    ]},
+  ]},
+  {id:3, ty:'wait', nm:'等待 500ms', ico:'⏸', st:'pass', meta:'500ms'},
+  {id:4, ty:'assert', nm:'断言 订单数 = 3', ico:'◆', st:'fail', fail:'期望 3 · 实际 2'},
+  {id:5, ty:'request', nm:'查询订单列表', ico:'●', st:'pass', meta:'200 · 89ms'},
+  {id:6, ty:'ref', nm:'引用：登录回归', ico:'⧉', st:'skip', meta:'skipped'},
+];
+const CASES = [
+  {src:'录制', n:4, ok:3}, {src:'AI 生成', n:5, ok:5}, {src:'edge-case', n:6, ok:4},
+];
+const METHODS = ['边界值','等价类','异常路径','鉴权绕过','并发安全'];
+
+/* ================= 状态 ================= */
+let cur = null;                    // 新用户首次打开：无任何 tab → 空态引导
+let openTabs = [];
+let selStep = 1, recOn = false, sub = 'assert', reqSeq = 0;
+
+/* ================= 左栏树 ================= */
+function renderTree(){
+  let h = '';
+  for(const g of APIS){
+    h += `<div class="grp"><b>${g.g}</b><span class="cov" style="color:var(--acc)">${g.cov} 覆盖</span></div>`;
+    for(const a of g.items){
+      h += `<div class="api ${cur&&cur.kind==='api'&&cur.id===a.id?'sel':''}" onclick="openTab('api','${a.id}','${a.m} ${a.u}')">
+        <span class="m ${a.m}">${a.m}</span><span class="u">${a.u}</span><span class="st ${a.st}" title="${a.st==='full'?'全覆盖':a.st==='part'?'部分覆盖':'未覆盖'}"></span></div>`;
+    }
+  }
+  h += `<div class="scn-grp"><div class="grp"><b>场景</b></div>`;
+  for(const s of SCNS){
+    h += `<div class="scn ${cur&&cur.kind==='scn'&&cur.id===s.id?'sel':''}" onclick="openTab('scn','${s.id}','${s.n}（场景）')">▸ ${s.n}${s.fail?`<span class="fl">${s.fail} fail</span>`:''}</div>`;
+  }
+  h += `</div><div class="src" style="padding:10px 6px">左栏：Hoppscotch 三栏骨架 + Postcat 资产树 + 覆盖率热力（五家都没有的一等公民）</div>`;
+  document.getElementById('tree').innerHTML = h;
+}
+
+/* ================= 中栏 tabs ================= */
+function openTab(kind, id, label){
+  const t = openTabs.find(t=>t.kind===kind&&t.id===id);
+  if(!t) openTabs.push({kind,id,label});
+  cur = {kind,id}; render();
+}
+function closeTab(kind,id,ev){
+  ev.stopPropagation();
+  openTabs = openTabs.filter(t=>!(t.kind===kind&&t.id===id));
+  if(cur&&cur.kind===kind&&cur.id===id){
+    cur = openTabs[0] ? {kind:openTabs[0].kind,id:openTabs[0].id} : null; // 关空 → 回空态引导
+  }
+  render();
+}
+function renderTabs(){
+  let h='';
+  for(const t of openTabs){
+    const api = t.kind==='api' ? APIS.flatMap(g=>g.items).find(a=>a.id===t.id) : null;
+    const ct = api && api.st!=='full' ? `<span class="bdg w">${api.st==='none'?'未测':'部分'}</span>` : '';
+    h += `<div class="tab ${cur&&cur.kind===t.kind&&cur.id===t.id?'on':''}" onclick="cur={kind:'${t.kind}',id:'${t.id}'};render()">
+      ${t.label}${ct}<span class="x" onclick="closeTab('${t.kind}','${t.id}',event)">✕</span></div>`;
+  }
+  h += `<button class="add" title="新建请求" onclick="newRequest()">＋</button>
+  <div class="envsel"><button class="sel">环境: dev ▾</button></div>`;
+  document.getElementById('tabs').innerHTML = h;
+}
+
+/* ================= 视图 ================= */
+function renderView(){
+  const v = document.getElementById('view');
+  if(!cur) v.innerHTML = emptyView();
+  else if(cur.kind==='api') v.innerHTML = apiView();
+  else if(cur.kind==='req') v.innerHTML = reqView();
+  else v.innerHTML = scnView();
+  if(cur&&cur.kind==='req'){
+    const inp = document.getElementById('reqUrl');
+    if(inp) inp.focus(); // 路径③：聚焦 URL 栏
+  }
+}
+
+/* ---- 空态引导：三条上手路径 ---- */
+function emptyView(){
+  return `<div class="empty-wrap">
+    <div class="empty-title">从哪条路开始？</div>
+    <div class="empty-sub">还没有打开任何请求 —— 三条上手路径，任选其一</div>
+    <div class="ecards">
+      <div class="ecard hot" id="ecRec">
+        <span class="ebadge">推荐</span>
+        <div class="eico">✦</div>
+        <div class="ett">录制流量 → AI 生成用例</div>
+        <div class="eds">打开录制开关跑一遍业务，AI 自动降噪脱敏，从真实流量生成可回放用例</div>
+        <span class="ego">开始 →</span>
+      </div>
+      <div class="ecard" id="ecSpec">
+        <div class="eico">⤓</div>
+        <div class="ett">导入 OpenAPI 文档</div>
+        <div class="eds">spec 派生测试：解析 operation 进清单，happy-path + edge-case 一键生成</div>
+        <span class="ego">开始 →</span>
+      </div>
+      <div class="ecard" id="ecReq">
+        <div class="eico">✎</div>
+        <div class="ett">手写调试</div>
+        <div class="eds">从零手写请求，在 URL 栏输入地址或粘贴 curl，直接发送调试</div>
+        <span class="ego">开始 →</span>
+      </div>
+    </div>
+    <div class="src empty-src">空态引导：新用户零资产时的三条上手路径 —— 录制优先（差异化入口前置），spec / 手写兜底</div>
+  </div>`;
+}
+document.addEventListener('click', e=>{
+  if(e.target.closest('#ecRec')) setRec(true);            // ①自动开录制开关+录制面板
+  else if(e.target.closest('#ecSpec')) openSpec();        // ②打开 spec 导入
+  else if(e.target.closest('#ecReq')) newRequest();       // ③聚焦 URL 栏
+});
+
+/* ---- 手写请求 tab（路径③ / ＋新建） ---- */
+function newRequest(){
+  const id = 'req-' + (++reqSeq);
+  openTabs.push({kind:'req', id, label:'新请求'});
+  cur = {kind:'req', id};
+  render();
+}
+function reqView(){
+  return `
+  <div class="subtabs">
+    <button class="sub on">请求</button>
+    <button class="sub">断言</button>
+    <button class="sub">文档</button>
+  </div>
+  <div class="urlbar">
+    <span class="mth GET">GET</span>
+    <input class="urlin" id="reqUrl" placeholder="输入 URL 或粘贴 curl，回车发送 —— {{base}} 变量可用" />
+    <button class="send">发送</button>
+  </div>
+  <div class="curl-hint show">提示：粘贴 curl 命令自动解析为请求（Hoppscotch #4 交互）</div>
+  <div class="content">
+    <div class="resp-empty">响应会显示在这里 —— 状态码 / 耗时 / body，发送后可一键「存为用例」</div>
+    <div class="src">手写调试：Hoppscotch 式最快路径 —— 零配置直接发请求，调试完再沉淀为用例</div>
+  </div>`;
+}
+
+function apiView(){
+  const api = APIS.flatMap(g=>g.items).find(a=>a.id===cur.id) || APIS[0].items[1];
+  return `
+  <div class="subtabs">
+    <button class="sub ${sub==='req'?'on':''}" onclick="sub='req';render()">请求</button>
+    <button class="sub ${sub==='assert'?'on':''}" onclick="sub='assert';render()">断言 <span class="ct" style="color:#eab308">2</span></button>
+    <button class="sub">前置 <span class="ct" style="color:var(--txt3)">1</span></button>
+    <button class="sub">文档</button>
+    <button class="sub ai" onclick="openAI('assert')">✦ AI 生成断言</button>
+  </div>
+  <div class="urlbar">
+    <span class="mth ${api.m}">${api.m}</span>
+    <span class="url"><span class="var">{{base}}</span>${api.u}</span>
+    <button class="curl" onclick="document.querySelector('.curl-hint').classList.toggle('show')">粘贴 curl 导入 ↘</button>
+    <button class="send">发送</button>
+  </div>
+  <div class="curl-hint">提示：粘贴 curl 命令自动解析为请求（Hoppscotch #4 交互）</div>
+  <div class="content">${
+    sub==='assert' ? assertPanel(api) :
+    `<div class="atable"><tr><th>参数</th><th>值</th><th>描述</th></tr>
+     <tr><td>id</td><td>1001</td><td>用户 ID（路径参数）</td></tr></div>
+     <div class="atable" style="margin-top:14px"><tr><th>响应码</th><th>schema</th><th>覆盖</th></tr>
+     <tr><td>200</td><td>user 对象</td><td class="ok">已测</td></tr><tr><td>404</td><td>error</td><td style="color:var(--del)">未测</td></tr></div>`
+  }</div>`;
+}
+function assertPanel(api){
+  return `<table class="atable"><tr><th>target</th><th>操作符</th><th>期望</th><th>实际</th><th>状态</th></tr>
+  ${ASSERTS.map(a=>`<tr>
+    <td>${a.t}</td><td class="op">${a.op}</td><td>${a.e||'—'}</td><td>${a.a}</td>
+    <td class="${a.m}">${a.m==='ok'?'PASS':a.m==='ng'?'FAIL':'IGNORE(噪音)'}</td></tr>`).join('')}
+  </table>
+  <div class="diff"><div style="color:var(--txt3);font-size:10.5px;margin-bottom:4px">失败 diff（Bruno #12 失败定位到行）</div>
+    <div class="row"><span class="exp">期望 $.data.amount = 99.00</span><span class="act">实际 $.data.amount = 0.00</span></div></div>
+  <div class="src">断言表格（Bruno #8 结构化断言编辑器）+ 噪音字段 IGNORE（A3 噪音检测的 UI 呈现）</div>`;
+}
+
+function scnView(){
+  return `
+  <div class="subtabs">
+    <button class="sub on">步骤树</button>
+    <button class="sub">变量 <span class="ct" style="color:var(--txt3)">3</span></button>
+    <button class="sub">报告</button>
+  </div>
+  <div class="stbar" style="margin:10px 14px 0">
+    <button class="run" id="runBtn" onclick="runDemo()">▶ 运行场景</button>
+    <button class="addstep" onclick="alert('六原语：请求 / 条件 / 循环 / 等待 / 断言 / 引用（MeterSphere #18）')">＋ 添加步骤 ▾</button>
+    <span class="summary" id="sum"></span>
+  </div>
+  <div class="content"><div class="steps" id="steps">${stepsHtml()}</div>
+  <div class="src">步骤树（MeterSphere 场景形态）：六原语 · 嵌套控制流 · 执行状态 · fail 下钻 · 分轮明细</div></div>`;
+}
+function stepsHtml(){
+  function node(n, depth){
+    const kids = n.kids ? `<div class="stkids">${n.kids.map(k=>node(k,depth+1)).join('')}</div>` : '';
+    const twist = n.kids ? `<span class="twist">▼</span>` : `<span style="width:14px"></span>`;
+    return `<div class="stnode ${n.kids?'':'leaf'}" id="st${n.id}">
+      <div class="strow ${n.st==='fail'?'fail':''} ${selStep===n.id?'sel':''}" onclick="selStep=${n.id};render()">
+        ${twist}<span class="ico ${n.ty}">${n.ico}</span><span class="nm">${n.nm}</span>
+        ${n.ext?`<span class="ext">↳ ${n.ext}</span>`:''}
+        <span class="meta">${n.fail?`<span class="fail">${n.fail}</span>`:''}${n.meta?`<span>${n.meta}</span>`:''}</span>
+        <span class="sdot ${n.st}"></span>
+      </div>${kids}</div>`;
+  }
+  return STEPS.map(n=>node(n,0)).join('');
+}
+let running = false;
+async function runDemo(){
+  if(running) return; running = true;
+  const flat = [];
+  (function walk(ns){for(const n of ns){flat.push(n); if(n.kids) walk(n.kids);}})(STEPS);
+  for(const n of flat){
+    n.st = 'run'; document.getElementById('steps').innerHTML = stepsHtml();
+    await new Promise(r=>setTimeout(r, 320));
+    n.st = n.id===221||n.id===4 ? 'fail' : (n.id===6?'skip':'pass');
+  }
+  document.getElementById('steps').innerHTML = stepsHtml();
+  const p = flat.filter(n=>n.st==='pass').length, f = flat.filter(n=>n.st==='fail').length, s = flat.filter(n=>n.st==='skip').length;
+  document.getElementById('sum').innerHTML = `<span class="p">${p} pass</span> · <span class="f">${f} fail</span> · <span class="s">${s} skipped</span> · 总耗时 2.7s`;
+  running = false;
+}
+
+/* ================= 右栏 ================= */
+function renderRight(){
+  const ctxApi = cur&&cur.kind==='api' ? APIS.flatMap(g=>g.items).find(a=>a.id===cur.id) : null;
+  document.getElementById('right').innerHTML = `
+  <h4>上下文</h4>
+  <div class="ctx">${!cur ? '未选择资产<br><span style="color:var(--txt4)">从左侧树或引导卡开始</span>' :
+    cur.kind==='api' ? `${ctxApi.m} {{base}}${ctxApi.u}<br>auth: bearer {{token}}<br>覆盖: ${ctxApi.st==='full'?'全覆盖':ctxApi.st==='part'?'部分':'未测'}` :
+    cur.kind==='req' ? '新请求（手写调试）<br>未发送' :
+    '循环×3 · 条件分支<br>2 fail · 1 skipped'}</div>
+  <h4>AI 能力</h4>
+  <button class="ai-entry" onclick="openAI('gen')"><span class="ico">✦</span> 从录制生成用例</button>
+  <button class="ai-entry" onclick="openAI('edge')"><span class="ico">✦</span> 生成 edge-case</button>
+  <button class="ai-entry" onclick="openAI('diag')"><span class="ico">✦</span> AI 断言诊断 <span class="hot"></span></button>
+  <h4>来源标注</h4>
+  <div class="src">右栏：AI 上下文面板（MeterSphere #23 的轻量常驻版）<br>顶栏录制开关 + 按域勾选（#19/#20 独有差异化）</div>`;
+}
+
+/* ================= 录制面板 ================= */
+const REC = [
+  {dom:'api.example.com', n:18, rows:[['POST','/login','top'],['GET','/users','ajax'],['GET','/users/:id','ajax'],['POST','/orders','ajax']]},
+  {dom:'cdn.jsdelivr.net', n:6, rows:[['GET','/npm/*.js','emb'],['GET','/npm/*.css','emb']]},
+  {dom:'sentry.io', n:3, rows:[['POST','/api/v1/breadcrumb','emb']]},
+];
+function renderRec(){
+  document.getElementById('rpBody').innerHTML = REC.map((d,i)=>`
+  <div class="rp-dom">
+    <div class="h"><span class="ck ${i===0?'on':''}" onclick="this.classList.toggle('on')"></span> ${d.dom} <span class="ct">${d.n} 条</span></div>
+    ${d.rows.map(r=>`<div class="rp-row"><span class="lv ${r[2]}">${r[2]==='top'?'主文档':r[2]==='ajax'?'业务XHR':'静态/三方'}</span> ${r[0]} ${r[1]}</div>`).join('')}
+  </div>`).join('') + `<div class="src" style="padding:8px 4px">请求分级降噪（#19 top/ajax/embedded）+ 按域勾选（#20）——录制转用例只认勾选域的业务请求</div>`;
+}
+function setRec(on){
+  recOn = on;
+  const t = document.getElementById('recToggle');
+  t.classList.toggle('on', recOn);
+  t.innerHTML = recOn ? '<span class="dot"></span> 录制中 · 27 条' : '<span class="dot"></span> 录制 · 待开启';
+  document.getElementById('recpanel').classList.toggle('show', recOn);
+}
+document.getElementById('recToggle').onclick = ()=>setRec(!recOn);
+
+/* ================= spec 导入弹窗 ================= */
+let _spBodyHtml = null, _spFootHtml = null;
+function openSpec(){
+  // 每次打开重置为初始表单（上次「解析完成」态不复用）
+  if(_spBodyHtml===null){ _spBodyHtml = document.getElementById('spBody').innerHTML; _spFootHtml = document.getElementById('spFoot').innerHTML; }
+  else { document.getElementById('spBody').innerHTML = _spBodyHtml; document.getElementById('spFoot').innerHTML = _spFootHtml; }
+  document.getElementById('specMask').classList.add('show');
+}
+function closeSpec(){ document.getElementById('specMask').classList.remove('show'); }
+function specDone(){
+  // 演示态：模拟解析完成
+  document.getElementById('spBody').innerHTML = `<div class="sp-done">
+    <div class="ok-big">✓ 解析完成</div>
+    已识别 <b style="color:var(--txt)">10 个 operation</b> 入 API inventory<br>
+    spec 派生 <b style="color:var(--txt)">12 条测试</b>（happy-path 5 · edge-case 7）· 待人审入库</div>`;
+  document.getElementById('spFoot').innerHTML = `<button class="sp-ok" onclick="closeSpec()">完成</button>`;
+  document.getElementById('spBody').style.display = '';
+}
+document.getElementById('spClose').onclick = closeSpec;
+document.getElementById('specMask').addEventListener('click', e=>{ if(e.target.id==='specMask') closeSpec(); });
+
+/* ================= AI 抽屉 ================= */
+let picked = new Set([0]);
+function openAI(mode){
+  document.getElementById('mask').classList.add('show');
+  document.getElementById('drawer').classList.add('show');
+  const label = cur&&cur.kind==='api' ? APIS.flatMap(g=>g.items).find(a=>a.id===cur.id) : null;
+  const ctx = label ? `<b>已选资产</b>：${label.m} {{base}}${label.u}` :
+    cur&&cur.kind==='scn' ? `<b>已选资产</b>：场景「下单流程」· 2 个失败步骤` :
+    `<b>已选资产</b>：无 —— 先打开一个 API 或场景`;
+  document.getElementById('drCtx').innerHTML = `${ctx}
+    <div class="ms">${METHODS.map(m=>`<span class="chip ${m==='边界值'||m==='等价类'?'on':''}" onclick="this.classList.toggle('on')">${m}</span>`).join('')}</div>`;
+  const body = document.getElementById('drBody');
+  const foot = document.getElementById('drFoot');
+  if(mode==='diag'){
+    body.innerHTML = `
+    <div class="msg user">帮我诊断「创建订单」轮 2 为什么 fail</div>
+    <div class="msg ai">
+      <div class="cap">AI 断言诊断（A7 · 根因分类）</div>
+      <b style="color:var(--del)">根因：contract_break（契约破坏）</b><br>
+      断言 <span style="font-family:var(--mono">$.status=201</span> 失败，实际返回 500。<br><br>
+      服务端在余额边界（amount=0）路径抛出未捕获异常——建议：<br>
+      1. 检查 <span style="font-family:var(--mono)">OrderService.create</span> 的金额校验分支<br>
+      2. 补 422 响应（violating schema）<br>
+      <div class="diff" style="margin-top:8px"><div class="row"><span class="exp">期望 $.status = 201</span><span class="act">实际 $.status = 500</span></div></div>
+    </div>`;
+    foot.innerHTML = `<button class="dr-ok" onclick="closeAI()">采纳诊断 → 转缺陷</button><button class="dr-no" onclick="closeAI()">关闭</button>`;
+  } else {
+    const gen = mode==='edge' ? [
+      ['余额为 0 时下单 → 期望 422','POST /orders · amount=0','边界值'],
+      ['余额为负数下单 → 期望 422','POST /orders · amount=-1','等价类'],
+      ['未携带 token 下单 → 期望 401','POST /orders · no auth','异常路径'],
+    ] : [
+      ['POST /login 302 跳转场景','登录失败重定向验证','录制生成'],
+      ['GET /users 分页 page=999','越界分页返回空','录制生成'],
+      ['POST /orders 并发重复提交','幂等性验证','录制生成'],
+    ];
+    body.innerHTML = `
+    <div class="msg user">${mode==='edge'?'针对这个 API 生成边界用例':'从刚才勾选的 18 条流量生成用例'}</div>
+    <div class="msg ai">
+      <div class="cap">AI 生成 ${gen.length} 条候选（勾选后入库 · 人审）</div>
+      ${gen.map((g,i)=>`<div class="gcase ${picked.has(i)?'pick':''}" onclick="togglePick(${i},this)">
+        <span class="ck"></span><div class="bd"><div class="tt">${g[0]}</div><div class="mt">${g[1]}</div></div>
+        <span class="how">${g[2]}</span></div>`).join('')}
+    </div>`;
+    foot.innerHTML = `
+    <button class="dr-in" style="text-align:left">继续描述你的意图…</button>
+    <button class="dr-go" onclick="openAI('edge')">发送</button>
+    <div class="dr-act" style="width:100%"><button class="dr-ok" onclick="closeAI()">✓ 入选 ${picked.size} 条入库（人审）</button>
+    <button class="dr-no" onclick="closeAI()">放弃</button></div>`;
+  }
+}
+function togglePick(i, el){ picked.has(i)?picked.delete(i):picked.add(i); el.classList.toggle('pick'); }
+function closeAI(){
+  document.getElementById('mask').classList.remove('show');
+  document.getElementById('drawer').classList.remove('show');
+}
+document.getElementById('aiBtn').onclick = ()=>openAI('gen');
+document.getElementById('drClose').onclick = closeAI;
+document.getElementById('mask').onclick = closeAI;
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeAI(); closeSpec(); } });
+
+/* ================= 主渲染 ================= */
+function render(){ renderTree(); renderTabs(); renderView(); renderRight(); }
+render(); renderRec();
+// 录制面板默认不展开（避免遮挡中栏 tab 点击），点录制开关才展开
+</script>
+</body>
+</html>

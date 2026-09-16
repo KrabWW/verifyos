@@ -1,0 +1,135 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: ◐
+      - generic [ref=e7]: api·test
+    - generic [ref=e8]:
+      - button "dev" [ref=e9] [cursor=pointer]
+      - button "staging" [ref=e10] [cursor=pointer]
+      - button "prod" [ref=e11] [cursor=pointer]
+    - button "glm-4.6" [ref=e15] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - button "切换主题色 teal" [ref=e23] [cursor=pointer]
+        - tooltip "teal"
+      - generic [ref=e24]:
+        - button "切换主题色 blue" [ref=e25] [cursor=pointer]
+        - tooltip "blue"
+      - generic [ref=e26]:
+        - button "切换主题色 violet" [ref=e27] [cursor=pointer]
+        - tooltip "violet"
+      - generic [ref=e28]:
+        - button "切换主题色 rose" [ref=e29] [cursor=pointer]
+        - tooltip "rose"
+      - generic [ref=e30]:
+        - button "切换主题色 amber" [ref=e31] [cursor=pointer]
+        - tooltip "amber"
+      - generic [ref=e32]:
+        - button "切换主题色 green" [ref=e33] [cursor=pointer]
+        - tooltip "green"
+      - generic [ref=e34]:
+        - button "切换主题色 cyan" [ref=e35] [cursor=pointer]
+        - tooltip "cyan"
+      - generic [ref=e36]:
+        - button "切换主题色 red" [ref=e37] [cursor=pointer]
+        - tooltip "red"
+      - generic [ref=e38]:
+        - button "切换主题色 orange" [ref=e39] [cursor=pointer]
+        - tooltip "orange"
+    - button "AI 助手" [ref=e40] [cursor=pointer]
+  - generic [ref=e44]:
+    - navigation [ref=e45]:
+      - generic [ref=e46]:
+        - button "API" [ref=e47] [cursor=pointer]
+        - tooltip "API"
+      - generic [ref=e52]:
+        - button "用例" [ref=e53] [cursor=pointer]
+        - tooltip "用例"
+      - generic [ref=e56]:
+        - button "覆盖率" [ref=e57] [cursor=pointer]
+        - tooltip "覆盖率"
+      - generic [ref=e61]:
+        - button "场景" [ref=e62] [cursor=pointer]
+        - tooltip "场景"
+      - generic [ref=e67]:
+        - button "报告" [active] [ref=e68] [cursor=pointer]
+        - tooltip "报告"
+      - generic [ref=e72]:
+        - button "设置" [ref=e73] [cursor=pointer]
+        - tooltip "设置"
+    - generic [ref=e77]:
+      - main [ref=e175]:
+        - generic [ref=e973]:
+          - generic [ref=e974]:
+            - heading "执行报告" [level=2] [ref=e975]
+            - generic [ref=e976]:
+              - button "最近 7 天" [ref=e977] [cursor=pointer]
+              - button "最近 30 天" [ref=e979] [cursor=pointer]
+              - button "全部" [ref=e980] [cursor=pointer]
+          - generic [ref=e981]:
+            - button "POST 通过 https://api.example.com/orders 4.2s LLM 6 证据 5 2026-09-08 10:24" [ref=e983] [cursor=pointer]:
+              - generic [ref=e986]: POST
+              - generic [ref=e987]: 通过
+              - generic [ref=e988]: https://api.example.com/orders
+              - generic [ref=e989]:
+                - generic [ref=e990]: 4.2s
+                - generic [ref=e994]: LLM 6
+                - generic [ref=e997]: 证据 5
+                - generic [ref=e1001]: 2026-09-08 10:24
+            - button "GET 通过 https://api.example.com/users/1001 1.8s LLM 2 证据 3 2026-09-08 09:51" [ref=e1003] [cursor=pointer]:
+              - generic [ref=e1006]: GET
+              - generic [ref=e1007]: 通过
+              - generic [ref=e1008]: https://api.example.com/users/1001
+              - generic [ref=e1009]:
+                - generic [ref=e1010]: 1.8s
+                - generic [ref=e1014]: LLM 2
+                - generic [ref=e1017]: 证据 3
+                - generic [ref=e1021]: 2026-09-08 09:51
+            - button "POST 失败 https://api.example.com/auth/login 3.1s LLM 4 证据 4 2026-09-07 18:02" [ref=e1023] [cursor=pointer]:
+              - generic [ref=e1026]: POST
+              - generic [ref=e1027]: 失败
+              - generic [ref=e1028]: https://api.example.com/auth/login
+              - generic [ref=e1029]:
+                - generic [ref=e1030]: 3.1s
+                - generic [ref=e1034]: LLM 4
+                - generic [ref=e1037]: 证据 4
+                - generic [ref=e1041]: 2026-09-07 18:02
+            - button "GET 通过 https://api.example.com/orders?page=2 2.4s LLM 3 证据 2 2026-09-06 14:37" [ref=e1043] [cursor=pointer]:
+              - generic [ref=e1046]: GET
+              - generic [ref=e1047]: 通过
+              - generic [ref=e1048]: https://api.example.com/orders?page=2
+              - generic [ref=e1049]:
+                - generic [ref=e1050]: 2.4s
+                - generic [ref=e1054]: LLM 3
+                - generic [ref=e1057]: 证据 2
+                - generic [ref=e1061]: 2026-09-06 14:37
+            - button "DELETE 未判定 https://api.example.com/users/:id 6.5s LLM 9 证据 6 2026-09-05 11:19" [ref=e1063] [cursor=pointer]:
+              - generic [ref=e1066]: DELETE
+              - generic [ref=e1067]: 未判定
+              - generic [ref=e1068]: https://api.example.com/users/:id
+              - generic [ref=e1069]:
+                - generic [ref=e1070]: 6.5s
+                - generic [ref=e1074]: LLM 9
+                - generic [ref=e1077]: 证据 6
+                - generic [ref=e1081]: 2026-09-05 11:19
+          - generic [ref=e1082]:
+            - generic [ref=e1083]: 总执行 5 次
+            - generic [ref=e1084]:
+              - text: 通过率
+              - generic [ref=e1085]: 60%
+            - generic [ref=e1086]:
+              - text: 平均耗时
+              - generic [ref=e1087]: 3.6s
+            - generic [ref=e1088]: 总 LLM 调用 24 次
+      - separator "调整右栏宽度" [ref=e214]
+      - complementary [ref=e217]:
+        - generic [ref=e218]:
+          - generic [ref=e219]: 快捷入口
+          - generic [ref=e220]:
+            - button "新建请求" [ref=e1089] [cursor=pointer]
+            - button "导入 OpenAPI" [ref=e1091] [cursor=pointer]
+            - button "打开 AI 助手" [ref=e1096] [cursor=pointer]
+          - generic [ref=e232]: 在左侧资产树选择一个 API 查看详情摘要，或切到「场景」查看场景执行概况。
+  - generic [ref=e233]:
+    - generic: AI 助手
+    - button "打开 AI 助手" [ref=e234]

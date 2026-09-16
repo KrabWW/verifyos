@@ -1,0 +1,42 @@
+/* L8：插件库（Everything is a Plugin）——仅 PluginsView 使用，避免与 styles.css 冲突（fe-ui 正在写） */
+
+/* custom 插件紫字徽章（builtin 蓝 / mcp 靛复用 styles.css 的 p-blue/p-indigo） */
+.chip.p-purple { color: #9333ea; background: #faf5ff; border: 1px solid #e9d5ff; }
+.chip.p-draft { color: var(--muted); background: #f4f4f5; border: 1px solid var(--border); }
+/* N 系：代码插件徽章（青绿色，区分声明式插件） */
+.chip.p-code { color: #0d9488; background: #f0fdfa; border: 1px solid #99f6e4; }
+
+/* tab 行 + 卡片 grid */
+.plg-tabs { display: flex; align-items: center; gap: 6px; }
+.plg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 9px; }
+.plg-card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r-sm); padding: 11px 13px; cursor: pointer; transition: .15s cubic-bezier(.25,1,.5,1); display: flex; flex-direction: column; gap: 6px; }
+.plg-card:hover { transform: translateY(-1px); box-shadow: 0 3px 12px rgba(24,24,27,.1); border-color: var(--border2); }
+.plg-card-head { display: flex; align-items: center; gap: 7px; }
+.plg-card-head b { font-size: 12.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plg-card-head .ver { font-family: var(--mono); font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.plg-card-desc { font-size: 11px; color: var(--muted); line-height: 1.55; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+/* e2e-eng 发现修复：foot 加 wrap 防挤压竖排；chip 统一 nowrap 防文字断行 */
+.plg-card-foot { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.plg-card-foot .grow { flex: 1; }
+.plg-card-foot .chip { white-space: nowrap; }
+
+/* 创建向导弹窗 */
+.plg-modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.32); z-index: 95; display: flex; align-items: center; justify-content: center; }
+.plg-modal { width: 480px; max-height: 84vh; background: var(--panel); border-radius: var(--r); box-shadow: 0 18px 50px rgba(0,0,0,.22); display: flex; flex-direction: column; animation: plg-pop .16s ease; }
+@keyframes plg-pop { from { transform: scale(.96); opacity: .6; } to { transform: none; opacity: 1; } }
+.plg-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px; border-bottom: 1px solid var(--border); }
+.plg-modal-head b { font-size: 13.5px; }
+.plg-modal-body { flex: 1; overflow-y: auto; padding: 13px 16px; }
+.plg-modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.plg-group { margin-bottom: 12px; }
+.plg-group > .plg-label { display: flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; color: var(--muted); font-family: var(--mono); margin-bottom: 6px; }
+.plg-label .ln { font-family: inherit; letter-spacing: 0; font-weight: 500; }
+.plg-input { width: 100%; border: 1px solid var(--border2); border-radius: var(--r-sm); padding: 6px 10px; font: 12.5px inherit; color: var(--text); background: #fff; box-sizing: border-box; }
+.plg-input:focus { outline: 2px solid rgba(99,102,241,.25); border-color: #6366f1; }
+.plg-json { font-family: var(--mono); font-size: 11.5px; line-height: 1.6; min-height: 110px; resize: vertical; }
+/* 权限三档选择（复用 prtab 药丸） */
+.plg-perm-opts { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* 详情抽屉里的 JSON 块 */
+.plg-code { font-family: var(--mono); font-size: 10.8px; line-height: 1.65; background: #fcfcfd; border: 1px solid var(--border); border-radius: var(--r-sm); padding: 8px 10px; white-space: pre-wrap; word-break: break-all; max-height: 210px; overflow-y: auto; margin: 5px 0 10px; }
+.plg-meta { font-size: 11.5px; }

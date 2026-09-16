@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "VerifyOS API Recorder",
+  "version": "0.1.0",
+  "description": "VerifyOS 接口测试录制通道：通过 DevTools panel 捕获浏览器流量（含 HTTPS 明文 body），导出 TrafficRecord JSON 供录制会话导入。",
+  "minimum_chrome_version": "116",
+  "devtools_page": "devtools.html",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "VerifyOS API Recorder"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["downloads", "storage"],
+  "icons": {}
+}

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>VerifyOS API Recorder</title>
+  <style>
+    body {
+      width: 320px;
+      margin: 0;
+      padding: 12px;
+      font: 13px/1.5 system-ui, -apple-system, sans-serif;
+      color: #1f2328;
+    }
+    h1 {
+      font-size: 14px;
+      margin: 0 0 8px;
+    }
+    .tip {
+      color: #57606a;
+      margin: 0 0 10px;
+    }
+    .stats {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .stat {
+      flex: 1;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      padding: 8px;
+      text-align: center;
+    }
+    .stat b {
+      display: block;
+      font-size: 18px;
+    }
+    .stat span {
+      color: #57606a;
+      font-size: 12px;
+    }
+    button {
+      width: 100%;
+      padding: 6px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      background: #f6f8fa;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #eef1f4;
+    }
+    ol {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: #57606a;
+    }
+  </style>
+</head>
+<body>
+  <h1>VerifyOS API Recorder</h1>
+  <p class="tip">Chrome 插件录制通道（HTTPS 明文）。捕获与导出在 DevTools 的「VerifyOS 录制」panel 中进行。</p>
+  <div class="stats">
+    <div class="stat"><b id="count">-</b><span>已捕获</span></div>
+    <div class="stat"><b id="ajax">-</b><span>接口(ajax)</span></div>
+  </div>
+  <button id="clear">清空已捕获流量</button>
+  <ol>
+    <li>打开目标网站，按 F12 打开 DevTools</li>
+    <li>切换到「VerifyOS 录制」panel</li>
+    <li>操作页面产生流量，panel 实时列出捕获项</li>
+    <li>点击「导出 JSON」，下载 TrafficRecord JSON</li>
+    <li>项目内执行 <code>npm run import:har &lt;file&gt;</code> 导入会话</li>
+  </ol>
+  <script src="popup.js"></script>
+</body>
+</html>

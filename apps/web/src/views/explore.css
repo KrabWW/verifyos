@@ -1,0 +1,97 @@
+/* L5: 探索实时浏览展示区（浏览器舞台截图流 + 紧凑 activity）——独立文件，勿并入 styles.css */
+
+/* 截图舞台：brow 内、browbar 之下，铺满剩余高度 */
+.shot-stage {
+  position: relative;
+  flex: 1;
+  min-height: 180px;
+  background: #0d1117;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* 实时截图：按宽度缩放，顶部对齐，柔和淡入避免闪跳 */
+.shot-stage .shot-img {
+  width: 100%;
+  display: block;
+  animation: shot-fade .35s ease;
+}
+
+@keyframes shot-fade {
+  from { opacity: .25; }
+  to { opacity: 1; }
+}
+
+/* 无截图占位（未开始 / 截图未产出） */
+.shot-stage .shot-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: #6b7684;
+  font-size: 11.5px;
+  padding: 24px;
+  text-align: center;
+}
+
+.shot-stage .shot-empty .scanline {
+  width: 44px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #4a90d9, transparent);
+  animation: scan 1.6s ease-in-out infinite;
+}
+
+@keyframes scan {
+  0%, 100% { transform: scaleX(.4); opacity: .4; }
+  50% { transform: scaleX(1); opacity: 1; }
+}
+
+/* 实时标识：左上角小红点 + LIVE */
+.shot-stage .shot-live {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  letter-spacing: .08em;
+  color: #e6edf3;
+  background: rgba(13, 17, 23, .72);
+  border: 1px solid rgba(230, 237, 243, .16);
+  border-radius: 20px;
+  padding: 2px 8px;
+  pointer-events: none;
+}
+
+.shot-stage .shot-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e5534b;
+  animation: live-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
+
+/* 舞台下紧凑 activity 条（最近 2 条，单行截断） */
+.shot-activity {
+  border-top: 1px solid var(--border);
+  padding: 5px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--card, #fff);
+}
+
+.shot-activity .logline {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+}

@@ -1,0 +1,11 @@
+- generic [ref=e3]:
+  - heading "AI Drawer 临时演示页" [level=1] [ref=e4]
+  - generic [ref=e5]:
+    - 'button "已选: GET /users/:id（gen-case）" [ref=e6]'
+    - 'button "场景: 下单流程 · 2 fail（diagnose）" [ref=e7]'
+    - 'button "覆盖: PUT /orders/:id · 40%（gen-case）" [ref=e8]'
+    - button "通用助手（chat）" [ref=e9]
+  - button "打开抽屉" [ref=e10]
+  - generic [ref=e11]:
+    - generic: AI 助手
+    - button "打开 AI 助手" [ref=e12]

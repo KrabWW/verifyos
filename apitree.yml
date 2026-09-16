@@ -1,0 +1,161 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: ◐
+      - generic [ref=e7]: api·test
+    - generic [ref=e8]:
+      - button "dev" [ref=e9] [cursor=pointer]
+      - button "staging" [ref=e10] [cursor=pointer]
+      - button "prod" [ref=e11] [cursor=pointer]
+    - button "glm-4.6" [ref=e15] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - button "切换主题色 teal" [ref=e23] [cursor=pointer]
+        - tooltip "teal"
+      - generic [ref=e24]:
+        - button "切换主题色 blue" [ref=e25] [cursor=pointer]
+        - tooltip "blue"
+      - generic [ref=e26]:
+        - button "切换主题色 violet" [ref=e27] [cursor=pointer]
+        - tooltip "violet"
+      - generic [ref=e28]:
+        - button "切换主题色 rose" [ref=e29] [cursor=pointer]
+        - tooltip "rose"
+      - generic [ref=e30]:
+        - button "切换主题色 amber" [ref=e31] [cursor=pointer]
+        - tooltip "amber"
+      - generic [ref=e32]:
+        - button "切换主题色 green" [ref=e33] [cursor=pointer]
+        - tooltip "green"
+      - generic [ref=e34]:
+        - button "切换主题色 cyan" [ref=e35] [cursor=pointer]
+        - tooltip "cyan"
+      - generic [ref=e36]:
+        - button "切换主题色 red" [ref=e37] [cursor=pointer]
+        - tooltip "red"
+      - generic [ref=e38]:
+        - button "切换主题色 orange" [ref=e39] [cursor=pointer]
+        - tooltip "orange"
+    - button "AI 助手" [ref=e40] [cursor=pointer]
+  - generic [ref=e44]:
+    - navigation [ref=e45]:
+      - generic [ref=e46]:
+        - button "API" [active] [ref=e47] [cursor=pointer]
+        - tooltip "API"
+      - generic [ref=e52]:
+        - button "用例" [ref=e53] [cursor=pointer]
+        - tooltip "用例"
+      - generic [ref=e56]:
+        - button "覆盖率" [ref=e57] [cursor=pointer]
+        - tooltip "覆盖率"
+      - generic [ref=e61]:
+        - button "场景" [ref=e62] [cursor=pointer]
+        - tooltip "场景"
+      - generic [ref=e67]:
+        - button "报告" [ref=e68] [cursor=pointer]
+        - tooltip "报告"
+      - generic [ref=e72]:
+        - button "设置" [ref=e73] [cursor=pointer]
+        - tooltip "设置"
+    - generic [ref=e77]:
+      - complementary [ref=e510]:
+        - generic [ref=e759]:
+          - textbox "搜索 API（名称 / 路径 / 方法）" [ref=e762]
+          - generic [ref=e763]:
+            - generic [ref=e764]:
+              - button "users 5" [ref=e765]:
+                - generic [ref=e770]: users
+                - generic [ref=e771]: "5"
+              - list [ref=e772]:
+                - listitem [ref=e773]:
+                  - generic [ref=e774] [cursor=pointer]:
+                    - generic [ref=e775]: GET
+                    - 'generic "{{base}}/users" [ref=e776]'
+                    - generic "全覆盖" [ref=e778]
+                - listitem [ref=e779]:
+                  - generic [ref=e780] [cursor=pointer]:
+                    - generic [ref=e781]: GET
+                    - 'generic "{{base}}/users/:id" [ref=e782]'
+                    - generic "全覆盖" [ref=e784]
+                - listitem [ref=e785]:
+                  - generic [ref=e786] [cursor=pointer]:
+                    - generic [ref=e787]: POST
+                    - 'generic "{{base}}/users" [ref=e788]'
+                    - generic "部分覆盖" [ref=e790]
+                - listitem [ref=e791]:
+                  - generic [ref=e792] [cursor=pointer]:
+                    - generic [ref=e793]: PUT
+                    - 'generic "{{base}}/users/:id" [ref=e794]'
+                    - generic "部分覆盖" [ref=e796]
+                - listitem [ref=e797]:
+                  - generic [ref=e798] [cursor=pointer]:
+                    - generic [ref=e799]: DELETE
+                    - 'generic "{{base}}/users/:id" [ref=e800]'
+                    - generic "未测试" [ref=e802]
+            - generic [ref=e803]:
+              - button "auth 3" [ref=e804]:
+                - generic [ref=e809]: auth
+                - generic [ref=e810]: "3"
+              - list [ref=e811]:
+                - listitem [ref=e812]:
+                  - generic [ref=e813] [cursor=pointer]:
+                    - generic [ref=e814]: POST
+                    - 'generic "{{base}}/auth/login" [ref=e815]'
+                    - generic "全覆盖" [ref=e817]
+                - listitem [ref=e818]:
+                  - generic [ref=e819] [cursor=pointer]:
+                    - generic [ref=e820]: POST
+                    - 'generic "{{base}}/auth/refresh" [ref=e821]'
+                    - generic "部分覆盖" [ref=e823]
+                - listitem [ref=e824]:
+                  - generic [ref=e825] [cursor=pointer]:
+                    - generic [ref=e826]: DELETE
+                    - 'generic "{{base}}/auth/token" [ref=e827]'
+                    - generic "未测试" [ref=e829]
+            - generic [ref=e830]:
+              - button "orders 2" [ref=e831]:
+                - generic [ref=e836]: orders
+                - generic [ref=e837]: "2"
+              - list [ref=e838]:
+                - listitem [ref=e839]:
+                  - generic [ref=e840] [cursor=pointer]:
+                    - generic [ref=e841]: GET
+                    - 'generic "{{base}}/orders" [ref=e842]'
+                    - generic "全覆盖" [ref=e844]
+                - listitem [ref=e845]:
+                  - generic [ref=e846] [cursor=pointer]:
+                    - generic [ref=e847]: POST
+                    - 'generic "{{base}}/orders" [ref=e848]'
+                    - generic "未测试" [ref=e850]
+          - generic [ref=e851]: 10/10 个接口 · 全覆盖 4 · 未测 3
+      - separator "调整左栏宽度" [ref=e618]
+      - main [ref=e175]:
+        - generic [ref=e852]:
+          - generic [ref=e853]:
+            - generic [ref=e854]: 从一条真实流量开始
+            - generic [ref=e855]: 录制 → 生成 → 断言 → 覆盖率看板，API 测试资产全自动沉淀
+          - generic [ref=e856]:
+            - button "录制流量 开启代理抓包，让真实业务流量自动沉淀为 API 资产与测试用例。 开始" [ref=e857] [cursor=pointer]:
+              - generic [ref=e865]: 录制流量
+              - generic [ref=e866]: 开启代理抓包，让真实业务流量自动沉淀为 API 资产与测试用例。
+              - generic [ref=e867]: 开始
+            - button "AI 生成 / 导入 OpenAPI 导入 OpenAPI 规范，或由 AI 依据资产智能生成覆盖补全用例。 导入" [ref=e870] [cursor=pointer]:
+              - generic [ref=e876]: AI 生成 / 导入 OpenAPI
+              - generic [ref=e877]: 导入 OpenAPI 规范，或由 AI 依据资产智能生成覆盖补全用例。
+              - generic [ref=e878]: 导入
+            - button "手写调试 像 Hoppscotch 一样直接构造请求，即时调试并保存为用例。 新建" [ref=e881] [cursor=pointer]:
+              - generic [ref=e885]: 手写调试
+              - generic [ref=e886]: 像 Hoppscotch 一样直接构造请求，即时调试并保存为用例。
+              - generic [ref=e887]: 新建
+      - separator "调整右栏宽度" [ref=e214]
+      - complementary [ref=e217]:
+        - generic [ref=e218]:
+          - generic [ref=e219]: 快捷入口
+          - generic [ref=e220]:
+            - button "新建请求" [ref=e890] [cursor=pointer]
+            - button "导入 OpenAPI" [ref=e892] [cursor=pointer]
+            - button "打开 AI 助手" [ref=e897] [cursor=pointer]
+          - generic [ref=e232]: 在左侧资产树选择一个 API 查看详情摘要，或切到「场景」查看场景执行概况。
+  - generic [ref=e233]:
+    - generic: AI 助手
+    - button "打开 AI 助手" [ref=e234]

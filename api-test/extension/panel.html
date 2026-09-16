@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>VerifyOS 录制</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+    body {
+      margin: 0;
+      font: 12px/1.5 system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      padding: 8px 10px;
+      border-bottom: 1px solid #d0d7de;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    header b {
+      margin-right: auto;
+    }
+    header label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #57606a;
+    }
+    header button {
+      padding: 4px 10px;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      background: #f6f8fa;
+      cursor: pointer;
+    }
+    header button:hover {
+      background: #eef1f4;
+    }
+    .summary {
+      padding: 4px 10px;
+      color: #57606a;
+      border-bottom: 1px solid #d0d7de;
+    }
+    .list {
+      flex: 1;
+      overflow: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th,
+    td {
+      text-align: left;
+      padding: 4px 8px;
+      border-bottom: 1px solid #eaeef2;
+      white-space: nowrap;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      background: #f6f8fa;
+      font-weight: 600;
+    }
+    td.cls {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 8px;
+      border: 1px solid #d0d7de;
+    }
+    td.cls.ajax {
+      color: #0969da;
+      border-color: #0969da;
+    }
+    td.cls.top_level {
+      color: #1a7f37;
+      border-color: #1a7f37;
+    }
+    td.cls.embedded {
+      color: #6e7781;
+    }
+    tr.noise td {
+      color: #8b949e;
+    }
+    .empty {
+      padding: 24px;
+      text-align: center;
+      color: #8b949e;
+    }
+    .error {
+      color: #cf222e;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <b>VerifyOS 流量捕获</b>
+    <label><input type="checkbox" id="hideNoise" checked /> 隐藏噪音</label>
+    <button id="export">导出 JSON</button>
+    <button id="clear">清空</button>
+  </header>
+  <div class="summary" id="summary">等待流量…（打开/操作页面即开始捕获，含 HTTPS 明文 body）</div>
+  <div class="list">
+    <div class="empty" id="empty">暂无捕获。刷新页面或产生新的网络请求。</div>
+    <table style="display: none" id="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>分级</th>
+          <th>方法</th>
+          <th>URL</th>
+          <th>状态</th>
+          <th>耗时</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <script src="panel.js"></script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+version: "3.9"
+
+# VerifyOS 私有化基建：PostgreSQL(+pgvector) / Redis / MinIO
+# 用法：docker compose up -d  ·  全部无外部 SaaS 依赖
+
+services:
+  postgres:
+    image: postgres:16-alpine  # 本地已有；pgvector 检索为 Phase 后续（v1 无向量查询）
+    container_name: verifyos-postgres
+    environment:
+      POSTGRES_USER: verifyos
+      POSTGRES_PASSWORD: verifyos
+      POSTGRES_DB: verifyos
+    ports:
+      - "15432:5432"  # 5432/5433 都被本机 Homebrew postgres 占用
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U verifyos"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: verifyos-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # minio：v1 证据用本地磁盘卷（EvidenceStore 已抽象，MinIO 接口同构可切）
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:

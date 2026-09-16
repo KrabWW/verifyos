@@ -1,0 +1,40 @@
+{
+  "name": "@verifyos/agent-core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "smoke": "tsx src/scheduler.smoke.ts",
+    "smoke:crawler": "tsx src/crawler.smoke.ts",
+    "prepare": "tsc",
+    "build": "tsc",
+    "smoke:graph": "tsx src/graph.smoke.ts",
+    "smoke:qa": "tsx src/qa-extract.smoke.ts",
+    "smoke:runner": "tsx src/runner.smoke.ts",
+    "smoke:evidence": "tsx src/evidence.smoke.ts",
+    "smoke:reach": "tsx src/reachability.smoke.ts",
+    "smoke:review": "tsx src/review.smoke.ts",
+    "smoke:registry": "tsx src/registry.smoke.ts"
+  },
+  "dependencies": {
+    "@verifyos/shared": "workspace:*",
+    "zod": "^3.23.8",
+    "playwright": "^1.49.0",
+    "@browserbasehq/stagehand": "^2.5.2",
+    "@ai-sdk/openai-compatible": "^0.2.16",
+    "dotenv": "^16.4.5",
+    "ai": "^4.3.16"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "pg-mem": "^3.0.5"
+  }
+}

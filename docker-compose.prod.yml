@@ -1,0 +1,89 @@
+# VerifyOS 私有化全栈编排（E3）
+# 干净机器 30 分钟起服 —— 详见 DEPLOY.md
+# 用法：docker compose -f docker-compose.prod.yml up -d --build
+
+name: verifyos
+
+services:
+  # ---------- 基础设施 ----------
+  postgres:
+    image: postgres:16-alpine  # 本地已有（pgvector 检索 Phase 后续）
+    environment:
+      POSTGRES_USER: verifyos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-verifyos}
+      POSTGRES_DB: verifyos
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    ports:
+      - '15432:5432'  # 15432 干净端口（避开 Homebrew 5432/5433）
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U verifyos -d verifyos']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  # minio：v1 证据用本地卷（接口同构可切）
+
+  # ---------- 应用 ----------
+  server:
+    image: verifyos-server:latest  # 已构建镜像（源码构建改为 build: 即可回归）
+    environment:
+      DATABASE_URL: postgres://verifyos:${POSTGRES_PASSWORD:-verifyos}@postgres:5432/verifyos
+      REDIS_URL: redis://redis:6379
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: '9000'
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-verifyos}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-verifyos_minio}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://open.bigmodel.cn/api/paas/v4}
+      LLM_MODEL: ${LLM_MODEL:-glm-4.5v}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY}
+      API_PORT: '8080'
+    ports:
+      - '8082:8080'  # dev server 占 8080
+    volumes:
+      - evidence:/app/out/evidence
+      - mr-comments:/app/out/mr-comments
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    image: verifyos-web:latest  # 已构建镜像
+    ports:
+      - '${WEB_PORT:-8081}:80'
+    depends_on:
+      - server
+    restart: unless-stopped
+
+  # ---------- 数据库迁移（一次性 job） ----------
+  migrate:
+    image: verifyos-server:latest
+    environment:
+      DATABASE_URL: postgres://verifyos:${POSTGRES_PASSWORD:-verifyos}@postgres:5432/verifyos
+    command: ['node', '--experimental-strip-types', 'scripts/migrate.ts']
+    volumes:
+      - ./apps/server/scripts:/app/apps/server/scripts:ro
+      - ./apps/server/migrations:/app/apps/server/migrations:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+volumes:
+  pgdata:
+  miniodata:
+  evidence:
+  mr-comments:

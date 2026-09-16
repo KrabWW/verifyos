@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="fR2WOhHTphZYzOGA03bHQy">
+<head data-page-node-id="Iu7xr5zxfsH1AdqlW6UrRx">
+<meta charset="UTF-8" data-page-node-id="On85QU8upwhfrJoOCZ8hun" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="5at3CtU2Vqgq64RcErbnkB" />
+<title>A9 微前端整合 PoC · 壳 + API 测试子应用</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --panel2: #1b202b;
+    --border: #262c38;
+    --text: #e6e9f0;
+    --sub: #9aa3b2;
+    --muted: #5f6b7d;
+    --green: #22c55e;
+    --lime: #a3e635;
+    --blue: #38bdf8;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 13px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .topbar {
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px; background: var(--panel);
+  }
+  .topbar .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  .topbar .tag { color: var(--muted); font-size: 12px; }
+  .wrap { display: flex; min-height: calc(100vh - 49px); }
+
+  /* ===== 壳：VerifyOS 侧边栏（示意） ===== */
+  .sidebar { width: 200px; background: var(--panel); border-right: 1px solid var(--border); padding: 14px 10px; }
+  .logo { display: flex; align-items: center; gap: 8px; padding: 2px 8px 14px; }
+  .logo .mark { width: 22px; height: 22px; border-radius: 6px; background: var(--lime); color: #111; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .logo b { font-size: 14px; }
+  .navsec { color: var(--muted); font-size: 11px; margin: 12px 8px 6px; text-transform: uppercase; letter-spacing: .05em; }
+  .navitem {
+    display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px;
+    color: var(--sub); cursor: default; margin-bottom: 2px;
+  }
+  .navitem .ic { width: 14px; text-align: center; opacity: .8; }
+  .navitem.active { background: #232b39; color: var(--text); font-weight: 600; }
+  .navitem.active .ic { color: var(--lime); }
+  .navitem.api { position: relative; }
+  .badge { margin-left: auto; font-size: 10px; background: #2a3140; color: var(--blue); padding: 1px 7px; border-radius: 10px; }
+
+  /* ===== 子应用容器 ===== */
+  .main { flex: 1; padding: 18px 22px; min-width: 0; }
+  .crumb { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+  .crumb b { color: var(--sub); }
+  .main h2 { margin: 0 0 2px; font-size: 17px; }
+  .hint { color: var(--muted); font-size: 12px; margin-bottom: 16px; }
+  .subapp {
+    border: 1px solid var(--border); border-radius: 12px; background: var(--panel2);
+    overflow: hidden;
+  }
+  .subapp-head {
+    display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+    border-bottom: 1px solid var(--border); background: #141822;
+  }
+  .subapp-head .traffic { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); }
+  .subapp-head .mono { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: auto; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 13px 14px; }
+  .card .t { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13px; }
+  .card .t .em { color: var(--lime); }
+  .card .d { color: var(--muted); font-size: 11.5px; margin-top: 5px; }
+  .card .meta { margin-top: 9px; font-family: var(--mono); font-size: 11px; color: var(--sub); display: flex; gap: 8px; flex-wrap: wrap; }
+  .pill { background: #232b39; border-radius: 6px; padding: 1px 7px; }
+  .foot { padding: 10px 14px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11.5px; background: #141822; }
+
+  /* ===== 配置代码区 ===== */
+  .cfg { margin-top: 20px; }
+  .cfg-tabs { display: flex; gap: 8px; margin-bottom: 10px; }
+  .cfg-tab { background: var(--panel); border: 1px solid var(--border); color: var(--sub); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 12.5px; }
+  .cfg-tab.on { background: #232b39; color: var(--text); border-color: #3a4a63; }
+  pre {
+    background: #0b0e13; border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; overflow: auto; font-family: var(--mono); font-size: 12px;
+    line-height: 1.7; color: #c9d4e3; margin: 0;
+  }
+  pre .c { color: #5f6b7d; }       /* 注释 */
+  pre .k { color: #c792ea; }       /* 关键字 */
+  pre .s { color: #a3e635; }       /* 字符串 */
+  pre .f { color: #38bdf8; }       /* 函数 */
+  .note { color: var(--muted); font-size: 12px; margin-top: 10px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .sidebar { display: none; } }
+</style>
+</head>
+<body data-page-node-id="qAJXtBBCH6Q0M4ISWn3FZR">
+  <div class="topbar" data-page-node-id="iHSLxXlaPi5eFOVsJiEZi3">
+    <span class="dot" data-page-node-id="MPs1vcG55ATuaoP774Rvch"></span>
+    <h1 data-page-node-id="pn0mSuM19flKDnZNdIwNap">VerifyOS 统一控制台</h1>
+    <span class="tag" data-page-node-id="Y8tBKy3BhIE32tctL7AuWD">A9 微前端整合 PoC · 壳 + API 测试子应用（静态演示，不起 dev server）</span>
+  </div>
+
+  <div class="wrap" data-page-node-id="jQvBYCc1n9HylqO1D99jNj">
+    <!-- 壳：主应用侧边栏（示意，实际由 apps/web 渲染） -->
+    <aside class="sidebar" data-page-node-id="D4EQXgwchU3dCBefRuA60C">
+      <div class="logo" data-page-node-id="q1NFJuioXLV5NzYHYgXnT3"><span class="mark" data-page-node-id="I8FfVVid9705K9xsVMRii1">✓</span><b data-page-node-id="ObZrehkq5efE5sBLyqLlEQ">VerifyOS</b></div>
+      <div class="navsec" data-page-node-id="MKv51JycFgCL8UHDroJUgd">工作区</div>
+      <div class="navitem" data-page-node-id="Ezp48TZlwS5WVSyZYg4fmb"><span class="ic" data-page-node-id="Hd8OUHDXkg7318BGcLvjBf">◧</span>概览</div>
+      <div class="navitem" data-page-node-id="vpnS2n6DeNAnZFNjN0AIjO"><span class="ic" data-page-node-id="Q3L5uGi07C8OFzWkGuN5tn">◈</span>探索</div>
+      <div class="navitem" data-page-node-id="2ryfBn583OCdMXG4EIsfpq"><span class="ic" data-page-node-id="b43za9Ab585sXEEMHqqXsF">◎</span>QA 点</div>
+      <div class="navitem" data-page-node-id="Ju3OraBtzYY7XrqfpvOFGz"><span class="ic" data-page-node-id="icwMxNR1CYE1quuuiHB4Qa">▶</span>验证 · 执行</div>
+      <div class="navitem" data-page-node-id="d86aFCrP27TUo3zdshitzt"><span class="ic" data-page-node-id="9OtplKyGkeiYwvVZhUtDrM">▤</span>执行历史</div>
+      <div class="navitem" data-page-node-id="oUoqSXA88BRHHUtnDRPB1W"><span class="ic" data-page-node-id="VOSN0vqZDbDUfjDneCNBJP">▦</span>问题</div>
+      <div class="navsec" data-page-node-id="O9uPURuxPqSFQMoV7c2ITb">测试</div>
+      <div class="navitem active api" data-page-node-id="VmrCf2pMYTwMJXeXZ2DyOj"><span class="ic" data-page-node-id="oAh70TNFOan6DVFY9HDGor">⚗</span>API 测试<span class="badge" data-page-node-id="ueUBKA3XzGKQZRLtOe3Fki">子应用</span></div>
+      <div class="navsec" data-page-node-id="sRE7uh8YG22zjVKp6IALWI">管理</div>
+      <div class="navitem" data-page-node-id="6cnn2fGmdH6C5F0LcZaTxX"><span class="ic" data-page-node-id="p2JB7OcX5DjLpXAwA5hHRV">⚙</span>项目设置</div>
+    </aside>
+
+    <!-- 子应用容器：qiankun 挂载点 #at-root（实际是主应用 /api-test 路由渲染的 div） -->
+    <main class="main" data-page-node-id="M8M2q6yreYsT2NJxkF2TEq">
+      <div class="crumb" data-page-node-id="F7W5VRNwxR6nf1oC3pt4HQ">VerifyOS / <b data-page-node-id="wZeFPcJLiCcOHC1maaGFbv">api-test</b> <span class="mono" style="font-family:var(--mono)" data-page-node-id="jESw3BimkMRBPH4QBZbBx8">#at-root</span></div>
+      <h2 data-page-node-id="RzjVCGv4jDjTAp2tKnMqbx">API 测试</h2>
+      <div class="hint" data-page-node-id="iTO2uGGgURrbFnOwy7ybuL">qiankun 子应用 · 独立部署于 <span class="mono" style="font-family:var(--mono)" data-page-node-id="nYEYNg2dunQlbCcDFYSjmB">http://localhost:5175</span> · activeRule <span class="mono" style="font-family:var(--mono)" data-page-node-id="J4GDCVI9GZi8AtlyyKRWLc">/api-test</span> · 能力来自 A1-A8</div>
+
+      <div class="subapp" data-page-node-id="w1fxV3aygiLyVsYd5BEyjq">
+        <div class="subapp-head" data-page-node-id="bZfzwPXSd3AAXEE479LF5z">
+          <span class="traffic" data-page-node-id="0qpMtIHmzNqv1aJecMPVPv"></span><span data-page-node-id="ZWWWBSSGBq5wUciFRGENuG">api-test Web UI（子应用内容区，无独立侧边栏）</span>
+          <span class="mono" data-page-node-id="CFRAJYTeydbPtjPU9pSTyy">props.getToken() → Bearer 注入</span>
+        </div>
+        <div class="grid" data-page-node-id="OBzQ8AYgvbwe0aGeu853hD">
+          <div class="card" data-page-node-id="ENxnR9hAd5cvbUDtulqBMO"><div class="t" data-page-node-id="M67Z9UA5kvV4YxTOg70sNf"><span class="em" data-page-node-id="qXPkYa3leAvjqqbvFjq98B">●</span>流量录制</div><div class="d" data-page-node-id="5xxJpgxkkpMRxrbDACFtC7">代理模式录制真实流量（A2）</div><div class="meta" data-page-node-id="cvg9c1o1RXJhl1tgznx1gk"><span class="pill" data-page-node-id="EMmTD529rlCASsfGOZIuEV">/api-test/record</span></div></div>
+          <div class="card" data-page-node-id="MZnsi2WgdQMW1cBdhxoYuD"><div class="t" data-page-node-id="rZWwRQWxw3axhzPmddQnoG"><span class="em" data-page-node-id="F19WBQuG62gg7jwH2NjaVH">▤</span>API 清单</div><div class="d" data-page-node-id="rJ6QTqUmKQPkKzd1B0MOhJ">接口资产自动发现（A4）</div><div class="meta" data-page-node-id="Mh9BVaGCz70E8jED8qFC9L"><span class="pill" data-page-node-id="Gsr5HTIUPWMXKhW0inNgp4">/api-test/inventory</span></div></div>
+          <div class="card" data-page-node-id="jwF6av7AtABot8Vcei9e2t"><div class="t" data-page-node-id="3k5aAzB5G3Rh9xJMYij3qC"><span class="em" data-page-node-id="gGaZaeXyjSXGe9IvTJCXpE">◔</span>覆盖率看板</div><div class="d" data-page-node-id="rBY4uDiQuPKXMPcNRJii4s">接口 × 响应维度覆盖（A5）</div><div class="meta" data-page-node-id="rb1AKLbmrdwi3najMAff2o"><span class="pill" data-page-node-id="jDdeoTGUKh25CYyUJnC4XR">/api-test/coverage</span></div></div>
+          <div class="card" data-page-node-id="9xyXaIvwFsAggcZbunaaYK"><div class="t" data-page-node-id="qP8XRntwrcZFaWm4MAAMb2"><span class="em" data-page-node-id="ieYByA8xlRfyIK2FnrY08b">▣</span>测试用例</div><div class="d" data-page-node-id="QakM17a8hBfoWCb43lBrDD">录制→测试 / spec 生成 / 断言诊断（A3·A6·A7）</div><div class="meta" data-page-node-id="GTVpLygM7zbpXSWhHcvPgc"><span class="pill" data-page-node-id="IDkRJLUYr6nfJfYb9D7idA">/api-test/cases</span></div></div>
+          <div class="card" data-page-node-id="UHtvtlA1tX89PShChIu9SA"><div class="t" data-page-node-id="VxhL7TQCzG601syk323bB8"><span class="em" data-page-node-id="31OHsgoKA9bYO0KNUvoSzd">⇄</span>场景编排</div><div class="d" data-page-node-id="DBZFYxcV7lQcYYwYVKBBFu">多接口串联 + 环境变量（A8）</div><div class="meta" data-page-node-id="3aJIFguC494nQNov67jkHX"><span class="pill" data-page-node-id="rulKERwgxhOjAKNtp8Yz0z">/api-test/scenarios</span></div></div>
+          <div class="card" data-page-node-id="ji5AkU6FAQyD6kUlxsnVRC"><div class="t" data-page-node-id="cCcKApjtfOCdm0YijEA1RA"><span class="em" data-page-node-id="HoegMy6ZyaaUf3v4G3JnQf">≡</span>接口报告</div><div class="d" data-page-node-id="HU4lV2bfClalXaOwGzXb54">md / json / junit 导出（A8）</div><div class="meta" data-page-node-id="qBskx4jqTV1Kc2nKhCLcbV"><span class="pill" data-page-node-id="DPgNf0nBJsLdt4cmaV6oT4">/api-test/report</span></div></div>
+        </div>
+        <div class="foot" data-page-node-id="KMigb4mGD3JhRZFOzAQV2Z">样式约定：子应用 class 前缀 <span class="mono" style="font-family:var(--mono)" data-page-node-id="SCQbxj4D6JTIb9G8rEF0ze">at-</span> + CSS Modules + 复用主应用 CSS 变量；通信：<span class="mono" style="font-family:var(--mono)" data-page-node-id="SJmgQZ2V9p66rrTOdxJ5va">initGlobalState</span> + <span class="mono" style="font-family:var(--mono)" data-page-node-id="HV03QehZiE4mpTmPoYNET0">verifyos:*</span> 事件总线。</div>
+      </div>
+
+      <!-- qiankun 关键配置片段 -->
+      <div class="cfg" data-page-node-id="fefBuRyBXNuXLRHnQmqP0B">
+        <div class="cfg-tabs" data-page-node-id="7y2tfOcAM4wxE4I9LS7Ojn">
+          <div class="cfg-tab on" onclick="showCfg('main', this)" data-page-node-id="gIXW913yAmnM3n0qaFtcHZ">主应用 · registerMicroApps</div>
+          <div class="cfg-tab" onclick="showCfg('sub', this)" data-page-node-id="nLV8Ev1LfB0Uy3fbnfS9AB">子应用 · vite-plugin-qiankun</div>
+        </div>
+        <pre id="cfg-main" data-page-node-id="Jxae9TFG0gxxAO2ssr83RV"><span class="c" data-page-node-id="xzilOatkVlVs59cnhpdR2b">// apps/web（主应用，Vite 直接可用，构建工具不限）</span>
+<span class="k" data-page-node-id="GuOlHFHdurcvg4WRzpPxTV">import</span> { registerMicroApps, start, initGlobalState } <span class="k" data-page-node-id="txGSyeA5m0R80uZpjnpxnk">from</span> <span class="s" data-page-node-id="mxDLi3IWkXSPg6PpAY31AO">'qiankun'</span>;
+
+<span class="k" data-page-node-id="bvP2DAKhIIemKtGlEPxRJe">const</span> actions = <span class="f" data-page-node-id="VMzsD4u01kbt0LQP6cmolB">initGlobalState</span>({
+  token: localStorage.<span class="f" data-page-node-id="c40cAV7pDPYmPyoCbymnyA">getItem</span>(<span class="s" data-page-node-id="1cxMaAbSwcIdpRGOjab8qK">'verifyos.token'</span>) ?? <span class="s" data-page-node-id="hncdVxUKcrxpaXNvBuwkCX">''</span>,
+  projectId: <span class="s" data-page-node-id="Wd44IZ706Y953SZDEKGv8s">''</span>,
+});
+
+<span class="f" data-page-node-id="0iHN9Xt32FcNTreBrBQyfQ">registerMicroApps</span>([
+  {
+    name: <span class="s" data-page-node-id="F5ukwrSAi2pCUs5oPhNdYB">'api-test'</span>,                 <span class="c" data-page-node-id="7BZU9N1AooEpAlFUpAM9Al">// 子应用唯一名</span>
+    entry: <span class="s" data-page-node-id="WPxfGIPGWiPEef2a2nUYfA">'http://localhost:5175'</span>,   <span class="c" data-page-node-id="AFzrsY8m2EasqJwMMVmS7P">// api-test Web UI dev server（未来）</span>
+    container: <span class="s" data-page-node-id="2jWMJZ5AtPTINHU0jdnYQX">'#at-root'</span>,            <span class="c" data-page-node-id="FzHj9H9rwSzYU7oJbCwQSB">// 主应用 /api-test 路由渲染的挂载容器</span>
+    activeRule: <span class="s" data-page-node-id="4DJwWM7tOZKddxL7eFtHq1">'/api-test'</span>,
+    props: {
+      getToken: () =&gt; localStorage.<span class="f" data-page-node-id="FXv3YQyVoDGiSMt5IsN3ow">getItem</span>(<span class="s" data-page-node-id="IQDcdOMrrbp2NomblnQV3L">'verifyos.token'</span>) ?? <span class="s" data-page-node-id="0VF3U8JVEdNhOaIR3GaBPO">''</span>,
+      projectId: actions.<span class="f" data-page-node-id="aaRdWVLs95iVVJiZmFiCoZ">getGlobalState</span>().projectId,
+    },
+  },
+]);
+
+<span class="f" data-page-node-id="gFtIVFL4L8Oc3E5hmpEsEq">start</span>({ prefetch: <span class="k" data-page-node-id="DQ1TFNHfXg56HqYNdYfOEr">false</span>, sandbox: { experimentalStyleIsolation: <span class="k" data-page-node-id="xaX1FHmyoZJgJNNYuXuKq8">false</span> } });</pre>
+
+        <pre id="cfg-sub" style="display:none" data-page-node-id="U75KO123MDBM9jPD2wuYMA"><span class="c" data-page-node-id="DqHTUUw4qRAOAuqgIACfgO">// api-test 未来 Web UI 入口（main.ts，Vite + vite-plugin-qiankun）</span>
+<span class="k" data-page-node-id="zrknUIqsWi8GoJOceqAA9s">import</span> { renderWithQiankun, qiankunWindow } <span class="k" data-page-node-id="D6WWBGe1A1KDU6GAkWjnDS">from</span> <span class="s" data-page-node-id="tHk8WfvDpMsbyCkzyDYn6Y">'vite-plugin-qiankun/dist/helper'</span>;
+
+<span class="k" data-page-node-id="G7LBgNdZy5O9UzL8wv5QHa">function</span> <span class="f" data-page-node-id="hvQc1der2HhXsC2oQ3n1w6">render</span>(props) {
+  <span class="c" data-page-node-id="8IIXqUdzYLbLyLDBA7s3iU">// 拿到主应用透传 token，注入全局 fetch 拦截器</span>
+  <span class="k" data-page-node-id="amNOBo6w1pDo8dX6eVFhph">const</span> token = props?.<span class="f" data-page-node-id="ERcO6t3CFVBfGR8Fw0XIdc">getToken</span>?.() ?? localStorage.<span class="f" data-page-node-id="nLawg3zAX3PTNGeNS47A9u">getItem</span>(<span class="s" data-page-node-id="iuSigpxBoA0vAYUTwsCHCu">'verifyos.token'</span>);
+  <span class="c" data-page-node-id="lXo09S7Tjq2RJrxujkZGCB">// ReactDOM.createRoot(...).render(&lt;App token={token} /&gt;) —— 伪代码</span>
+}
+
+<span class="f" data-page-node-id="FKc0VbVj2M6BBjswH2gZgv">renderWithQiankun</span>({
+  <span class="f" data-page-node-id="P6HXrCHFrfxQiTCGKrLBcr">bootstrap</span>() {},
+  <span class="f" data-page-node-id="WByrdrBwLBeJP3KxcRBf7n">mount</span>(props) { <span class="f" data-page-node-id="6CHbXc5ifuGHbQgk4zEH9w">render</span>(props); },
+  <span class="f" data-page-node-id="mHI4TiDk9r4WytGUnc2dRd">unmount</span>() {},          <span class="c" data-page-node-id="RaqAKL1yd1iRMiOv3zQEAB">// 卸载 React 根节点，释放资源</span>
+  <span class="f" data-page-node-id="Q2cdYiQXyFrdvWoLfn7aFX">update</span>(props) {},
+});
+
+<span class="c" data-page-node-id="DZKZ69VF4TWIKhkIs4lcyW">// 独立运行时（脱离主应用调试）直接渲染</span>
+<span class="k" data-page-node-id="yBe20gQFRx8tXGeHvCPwr6">if</span> (!qiankunWindow.__POWERED_BY_QIANKUN__) <span class="f" data-page-node-id="HBiEw2C7IcAHcIzBaSQzFT">render</span>({});</pre>
+
+        <pre id="cfg-vite" style="display:none" data-page-node-id="4jWmHNEMlLnX5f8G5lrfRz"><span class="c" data-page-node-id="YvP3rLjXsSVBNL1IMt01ew">// api-test Web UI vite.config.ts</span>
+<span class="k" data-page-node-id="yZCSc0oHZyvexTkPOaS0dB">import</span> qiankun <span class="k" data-page-node-id="03UXDm5rEy0ZwaZW3QQYLR">from</span> <span class="s" data-page-node-id="WXBkCPiCYgvSuUhFz2Emmk">'vite-plugin-qiankun'</span>;
+
+<span class="k" data-page-node-id="J6oHCwNV3Q19i9AJl7EXhW">export default</span> <span class="f" data-page-node-id="wBgoUGJy8ReRBzkPOU6skr">defineConfig</span>({
+  base: <span class="s" data-page-node-id="9saDRYhkjJ3BSqgZ0JGwnA">'/api-test/'</span>,          <span class="c" data-page-node-id="bzKgs1UbKlKZBmnzXPrjib">// 资源前缀与 activeRule 对齐</span>
+  server: {
+    port: <span class="k" data-page-node-id="bqL9cUd2kRBiGpfK5sKUAJ">5175</span>,
+    headers: { <span class="s" data-page-node-id="EErex2Xp1LRsI8igcHNj7M">'Access-Control-Allow-Origin'</span>: <span class="s" data-page-node-id="V9BEUOb0g47PGu4EEKA9Iu">'*'</span> },  <span class="c" data-page-node-id="L0YHx8LgrzO7WjyPhr1qFx">// qiankun 跨域拉取子应用资源</span>
+  },
+  plugins: [<span class="f" data-page-node-id="EIpxaQFy7hzE0dgxAEEDox">qiankun</span>(<span class="s" data-page-node-id="sVF0wGpelBIEYbdcPftBBV">'api-test'</span>, { useDevMode: <span class="k" data-page-node-id="Ni6qDLaQJ3bSr9SpJ91jCo">true</span> })],
+});</pre>
+
+        <p class="note" data-page-node-id="yDmVD6o7luxZhUGqekQDTU">以上为整合时的关键配置示例；真正挂载需待 api-test 子应用 <span class="mono" style="font-family:var(--mono)" data-page-node-id="Fd2AaMUXXEcDnkWnhqCmFK">web/</span> 建成后验证（详见 docs/microfrontend.md §9）。</p>
+      </div>
+    </main>
+  </div>
+
+<script>
+  function showCfg(name, el) {
+    document.querySelectorAll('.cfg-tab').forEach(function (t) { t.classList.remove('on'); });
+    el.classList.add('on');
+    ['main', 'sub', 'vite'].forEach(function (id) {
+      document.getElementById('cfg-' + id).style.display = (id === name) ? '' : 'none';
+    });
+    // 子应用 tab 同时展示入口 + vite 配置两段
+    if (name === 'sub') document.getElementById('cfg-vite').style.display = '';
+  }
+</script>
+</body>
+</html>

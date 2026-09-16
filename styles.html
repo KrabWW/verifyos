@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="8IJaul6jZQ6OH51swoUj9D">
+<head data-page-node-id="kss19IWcQGiwa1inJ6eFbJ">
+<meta charset="UTF-8" data-page-node-id="bud9LCsfTI3dj4FsTpqrRY">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="MK80Z1l0EB7Z3h8125yJRK">
+<title>VerifyOS · 风格方向样张（三选一）</title>
+<style>
+/* ============ 公共 ============ */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--ease:cubic-bezier(.25,1,.5,1);--ease-expo:cubic-bezier(.16,1,.3,1)}
+body{font:13px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;background:#ececee;color:#18181b;padding:28px 24px 60px}
+b{font-weight:600}
+.hero{max-width:1180px;margin:0 auto 26px}
+.hero h1{font-size:24px;font-weight:700;letter-spacing:-.02em}
+.hero p{color:#5b5e66;margin-top:6px;font-size:13.5px}
+.hero .k{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.12em;color:#8a8d96;margin-bottom:10px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:34px}
+.vhead{display:flex;align-items:baseline;gap:12px;margin-bottom:12px}
+.vhead h2{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.vhead .tag{font-size:11.5px;color:#6b6e76}
+.pick{margin-left:auto;font-size:11px;color:#8a8d96;border:1px dashed #b9bcc4;border-radius:999px;padding:3px 12px}
+/* 三列布局：mini-app 直接占满宽度 */
+.mini{border-radius:14px;overflow:hidden;box-shadow:0 2px 6px rgba(20,22,30,.06),0 24px 64px rgba(20,22,30,.12);animation:rise .7s var(--ease) both}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* 图标 */
+svg.ic{width:15px;height:15px;flex-shrink:0;vertical-align:-3px}
+svg.ic.sm{width:13px;height:13px}
+svg.ic.xs{width:11px;height:11px}
+/* 通用迷你 UI 骨架（三版共用 DOM 结构） */
+.app{display:grid;grid-template-columns:198px 1fr;min-height:560px;font-size:12.5px}
+.app .sb{padding:14px 12px}
+.app .logo{display:flex;align-items:center;gap:9px;padding:2px 6px 14px}
+.app .mk{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
+.app .lname{font-weight:700;font-size:13.5px;letter-spacing:-.01em;display:block;line-height:1.2}
+.app .lt{display:block;font-size:9px;font-weight:500;letter-spacing:.02em;opacity:.55;white-space:nowrap}
+.app .sec{font-size:9.5px;font-weight:700;letter-spacing:.12em;margin:12px 8px 5px}
+.app .ni{display:flex;align-items:center;gap:9px;padding:6.5px 9px;border-radius:7px;font-weight:500;position:relative}
+.app .ni .cnt{margin-left:auto;font-size:10px;border-radius:8px;padding:0 6px}
+.app .main{display:flex;flex-direction:column;min-width:0}
+.app .tb{display:flex;align-items:center;gap:10px;padding:9px 16px;border-bottom:1px solid}
+.app .pj{font-weight:600}
+.app .cb{opacity:.55;font-size:12px}
+.app .sr{flex:1;max-width:250px;display:flex;align-items:center;gap:7px;border-radius:7px;padding:5px 10px;font-size:11.5px}
+.app .sr .kbd{margin-left:auto;font-size:9.5px;border-radius:4px;padding:0 5px;font-family:ui-monospace,Menlo,monospace}
+.app .ct{padding:16px;flex:1}
+.app .ph{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.app .ph h3{font-size:15.5px;font-weight:700;letter-spacing:-.015em;display:flex;align-items:center;gap:8px}
+.app .flt{display:flex;gap:6px;margin-bottom:12px}
+.app .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;border-radius:999px;padding:2px 9px;border:1px solid transparent}
+.app .chip .d{width:5px;height:5px;border-radius:50%;background:currentColor}
+.app .g2{display:grid;grid-template-columns:1.25fr 1fr;gap:10px;margin-bottom:12px}
+.app .card{border-radius:10px;padding:13px 14px}
+.app .card h5{font-size:12px;font-weight:700;display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.app .live{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;border-radius:999px;padding:2px 9px;letter-spacing:.06em}
+.app .live i{width:5px;height:5px;border-radius:50%;background:currentColor;animation:pu 1.2s infinite}
+@keyframes pu{50%{opacity:.35}}
+.app .bar{height:6px;border-radius:4px;overflow:hidden;margin:9px 0 6px}
+.app .bar i{display:block;height:100%;border-radius:4px}
+.app .hint{font-size:11px}
+.app .msg{display:flex;gap:9px;margin-bottom:8px}
+.app .av{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.app .bub{border-radius:4px 10px 10px 10px;padding:9px 11px;font-size:12px;line-height:1.65;flex:1}
+.app .tbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.app .tbl th{font-size:10px;font-weight:700;letter-spacing:.08em;text-align:left;padding:7px 10px}
+.app .tbl td{padding:8px 10px}
+.app .tbl tr:last-child td{border-bottom:none}
+.app .tbtn{font-size:11px;font-weight:600;border-radius:6px;padding:3.5px 10px;border:1px solid transparent;display:inline-flex;align-items:center;gap:5px}
+.app .btns{display:flex;gap:8px;margin-top:12px}
+.app .btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:8px;padding:6.5px 14px;border:1px solid transparent}
+.app .btn.gh{background:none}
+/* ============ A · QA.tech 精修（白底 · 黑主色 · lime 活跃 · 网格） ============ */
+.v-a .mini{background:#f7f7f8;color:#18181b}
+.v-a .sb{background:#fff;border-right:1px solid #e7e7ea}
+.v-a .mk{background:#18181b;color:#fff}
+.v-a .lt{display:inline}
+.v-a .sec{color:#a1a1aa}
+.v-a .ni{color:#52525b}
+.v-a .ni:hover{background:#f4f4f5}
+.v-a .ni.on{background:#18181b;color:#fff;font-weight:600}
+.v-a .ni.on svg{color:#bef264}
+.v-a .ni .cnt{background:#f4f4f5;color:#71717a}
+.v-a .ni.on .cnt{background:rgba(255,255,255,.16);color:#d4d4d8}
+.v-a .tb{background:#fff}
+.v-a .cb{color:#52525b}
+.v-a .sr{background:#f4f4f5;color:#a1a1aa}
+.v-a .sr .kbd{background:#fff;color:#a1a1aa;border:1px solid #e4e4e7}
+.v-a .ph .st{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:#365314;background:#fcffe8;border:1px solid #d9f99d;border-radius:999px;padding:2.5px 10px}
+.v-a .ph .st .d{width:6px;height:6px;border-radius:50%;background:#a3e635;animation:pu 1.2s infinite}
+.v-a .btn.primary{background:#18181b;color:#fff}
+.v-a .btn.primary:hover{background:#2c2c31}
+.v-a .btn{background:#fff;color:#3f3f46;border-color:#e0e0e3}
+.v-a .btn.gh{border-color:transparent;color:#52525b}
+.v-a .btn.danger{color:#dc2626;border-color:#fecaca;background:#fef2f2}
+.v-a .chip.green{color:#15803d;background:#f0fdf4;border-color:#bbf7d0}
+.v-a .chip.red{color:#dc2626;background:#fef2f2;border-color:#fecaca}
+.v-a .chip.amber{color:#b45309;background:#fffbeb;border-color:#fde68a}
+.v-a .chip.blue{color:#1d4ed8;background:#eff6ff;border-color:#bfdbfe}
+.v-a .chip.gray{color:#52525b;background:#f4f4f5;border-color:#e4e4e7}
+.v-a .card{background:#fff;border:1px solid #e7e7ea;box-shadow:0 1px 2px rgba(24,24,27,.04)}
+.v-a .g2{position:relative}
+.v-a .card.hero-live{background-image:linear-gradient(rgba(24,24,27,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(24,24,27,.03) 1px,transparent 1px);background-size:18px 18px}
+.v-a .live{background:#365314;color:#ecfccb}
+.v-a .bar{background:#e4e4e7}
+.v-a .bar i{background:linear-gradient(90deg,#84cc16,#a3e635);position:relative;overflow:hidden}
+.v-a .bar i:after{content:'';position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,.55) 50%,transparent 70%);animation:sheen 2.2s infinite}
+@keyframes sheen{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.v-a .hint{color:#71717a}
+.v-a .av{background:linear-gradient(135deg,#7c76b6,#4f46e5);color:#fff;font-size:11px}
+.v-a .bub{background:#fff;border:1px solid #e7e7ea}
+.v-a .tbl th{color:#a1a1aa;border-bottom:1px solid #ececef}
+.v-a .tbl td{border-bottom:1px solid #f2f2f4}
+.v-a .tbl tbody tr{transition:background .15s var(--ease)}
+.v-a .tbl tbody tr:hover{background:#fafafa}
+.v-a .tbtn{background:#fff;color:#3f3f46;border-color:#e0e0e3}
+.v-a .tbtn.pri{background:#18181b;color:#fff;border-color:#18181b}
+.v-a .btns .btn:hover,.v-a .tbtn:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(24,24,27,.09)}
+/* B · Linear 精密（深色 · 低饱和 · 紫罗兰 · 细边框） */
+.v-b .mini{background:#101014;color:#ececf1}
+.v-b .sb{background:#121217;border-right:1px solid #1f1f25}
+.v-b .mk{background:linear-gradient(135deg,#8b7cf8,#6a5ae8);color:#fff}
+.v-b .lt{display:inline}
+.v-b .sec{color:#5b5b64;letter-spacing:.14em}
+.v-b .ni{color:#9b9ba3}
+.v-b .ni:hover{background:#1a1a20;color:#d5d5db}
+.v-b .ni.on{background:#1d1d24;color:#fff;font-weight:600;box-shadow:inset 0 0 0 1px #2a2a33}
+.v-b .ni.on svg{color:#a99cf9}
+.v-b .ni.on:before{content:'';position:absolute;left:-12px;top:7px;bottom:7px;width:2px;border-radius:2px;background:#8b7cf8}
+.v-b .ni .cnt{background:#1d1d24;color:#8a8a94}
+.v-b .tb{background:#121217;border-color:#1f1f25}
+.v-b .cb{color:#9b9ba3}
+.v-b .sr{background:#1a1a20;color:#5b5b64;box-shadow:inset 0 0 0 1px #26262d}
+.v-b .sr .kbd{background:#26262d;color:#8a8a94}
+.v-b .ph .st{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:#c4b8fa;background:rgba(124,108,240,.12);box-shadow:inset 0 0 0 1px rgba(139,124,248,.35);border-radius:999px;padding:2.5px 10px}
+.v-b .ph .st .d{width:6px;height:6px;border-radius:50%;background:#a99cf9;animation:pu 1.2s infinite}
+.v-b .btn.primary{background:#7c6cf0;color:#fff;box-shadow:0 0 0 1px rgba(255,255,255,.08) inset,0 4px 14px rgba(124,108,240,.28)}
+.v-b .btn.primary:hover{background:#8b7cf8}
+.v-b .btn{background:#1a1a20;color:#c8c8cf;border-color:#2a2a31}
+.v-b .btn.gh{border-color:transparent;color:#9b9ba3}
+.v-b .btn.danger{color:#f87171;border-color:#3f2226;background:rgba(220,38,38,.1)}
+.v-b .chip.green{color:#6ee7a0;background:rgba(22,163,74,.12);border-color:rgba(22,163,74,.3)}
+.v-b .chip.red{color:#fca5a5;background:rgba(220,38,38,.12);border-color:rgba(220,38,38,.3)}
+.v-b .chip.amber{color:#fcd34d;background:rgba(217,119,6,.12);border-color:rgba(217,119,6,.3)}
+.v-b .chip.blue{color:#a5c8ff;background:rgba(59,110,242,.13);border-color:rgba(59,110,242,.32)}
+.v-b .chip.gray{color:#9b9ba3;background:#1d1d24;border-color:#2a2a31}
+.v-b .card{background:#15151a;border:1px solid #232329}
+.v-b .live{background:rgba(124,108,240,.16);color:#c4b8fa}
+.v-b .bar{background:#232329}
+.v-b .bar i{background:linear-gradient(90deg,#6a5ae8,#a99cf9)}
+.v-b .hint{color:#8a8a94}
+.v-b .av{background:linear-gradient(135deg,#8b7cf8,#5b4bd4);color:#fff;font-size:11px}
+.v-b .bub{background:#1a1a20;border:1px solid #26262d}
+.v-b .tbl th{color:#5b5b64;border-bottom:1px solid #232329}
+.v-b .tbl td{border-bottom:1px solid #1c1c22}
+.v-b .tbl tbody tr{transition:background .15s var(--ease)}
+.v-b .tbl tbody tr:hover{background:#191920}
+.v-b .tbtn{background:#1a1a20;color:#c8c8cf;border-color:#2a2a31}
+.v-b .tbtn.pri{background:#7c6cf0;color:#fff;border-color:transparent}
+.v-b .btns .btn:hover,.v-b .tbtn:hover{transform:translateY(-1px)}
+.v-b .mono{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:#8a8a94}
+/* C · Vercel 精度（极简黑白 · 蓝信号色 · 大数字） */
+.v-c .mini{background:#fafafa;color:#171717}
+.v-c .sb{background:#fff;border-right:1px solid #eaeaea}
+.v-c .mk{background:#171717;color:#fff;border-radius:7px}
+.v-c .lt{display:inline}
+.v-c .sec{color:#a3a3a3}
+.v-c .ni{color:#525252;border-radius:6px}
+.v-c .ni:hover{background:#f4f4f4;color:#171717}
+.v-c .ni.on{background:#f4f4f4;color:#171717;font-weight:600}
+.v-c .ni.on:before{content:'';position:absolute;left:-12px;top:8px;bottom:8px;width:2px;background:#171717}
+.v-c .ni .cnt{background:#f4f4f4;color:#737373}
+.v-c .tb{background:rgba(255,255,255,.85);backdrop-filter:blur(8px);border-color:#eaeaea}
+.v-c .cb{color:#666}
+.v-c .sr{background:#fff;color:#a3a3a3;border:1px solid #e5e5e5}
+.v-c .sr .kbd{background:#f5f5f5;color:#8f8f8f;border:1px solid #e8e8e8}
+.v-c .ph h3{font-size:17px}
+.v-c .ph .st{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:500;color:#3f3f3f;border:1px solid #e5e5e5;background:#fff;border-radius:6px;padding:3px 9px}
+.v-c .ph .st .d{width:6px;height:6px;border-radius:50%;background:#0069ed;animation:pu 1.2s infinite}
+.v-c .btn.primary{background:#0069ed;color:#fff}
+.v-c .btn.primary:hover{background:#0058c8}
+.v-c .btn{background:#fff;color:#3f3f3f;border-color:#e0e0e0}
+.v-c .btn.dark{background:#171717;color:#fff;border-color:#171717}
+.v-c .btn.gh{border-color:transparent;color:#666}
+.v-c .btn.danger{color:#d43838;border-color:#f1c9c9;background:#fff}
+.v-c .chip.green{color:#1a7f37;background:#fff;border-color:#d7f0dc}
+.v-c .chip.red{color:#d43838;background:#fff;border-color:#f4d4d4}
+.v-c .chip.amber{color:#ad5f00;background:#fff;border-color:#f2e3c4}
+.v-c .chip.blue{color:#0058c8;background:#fff;border-color:#cfe3fb}
+.v-c .chip.gray{color:#575757;background:#f7f7f7;border-color:#e8e8e8}
+.v-c .card{background:#fff;border:1px solid #eaeaea;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.v-c .card .big{font-size:26px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.1}
+.v-c .live{background:#171717;color:#fff}
+.v-c .live i{background:#4ade80}
+.v-c .bar{background:#ececec}
+.v-c .bar i{background:#171717}
+.v-c .hint{color:#8f8f8f}
+.v-c .av{background:#171717;color:#fff;font-size:11px}
+.v-c .bub{background:#fff;border:1px solid #eaeaea}
+.v-c .tbl th{color:#a3a3a3;border-bottom:1px solid #eaeaea}
+.v-c .tbl td{border-bottom:1px solid #f5f5f5}
+.v-c .tbl tbody tr{transition:background .12s var(--ease)}
+.v-c .tbl tbody tr:hover{background:#fafafa}
+.v-c .tbtn{background:#fff;color:#3f3f3f;border-color:#e0e0e0}
+.v-c .tbtn.pri{background:#0069ed;color:#fff;border-color:#0069ed}
+.v-c .btns .btn:hover,.v-c .tbtn:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.07)}
+/* 底部对比表 */
+.cmp{max-width:1180px;margin:34px auto 0;background:#fff;border-radius:14px;padding:24px 26px;box-shadow:0 2px 6px rgba(20,22,30,.05),0 16px 44px rgba(20,22,30,.09)}
+.cmp h3{font-size:15px;margin-bottom:12px;letter-spacing:-.01em}
+.cmp table{width:100%;border-collapse:collapse;font-size:12.5px}
+.cmp th{font-size:10.5px;letter-spacing:.08em;color:#8a8d96;text-align:left;padding:8px 10px;border-bottom:1px solid #ececef}
+.cmp td{padding:9px 10px;border-bottom:1px solid #f4f4f6;vertical-align:top}
+.cmp tr:last-child td{border-bottom:none}
+.cmp .sw{display:inline-flex;gap:4px;vertical-align:middle}
+.cmp .sw i{width:13px;height:13px;border-radius:4px;display:inline-block}
+.note{max-width:1180px;margin:16px auto 0;font-size:12px;color:#6b6e76;text-align:center}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body data-page-node-id="T4o0VpTQqAZOKP288wZQTt">
+
+<div class="hero" data-page-node-id="7RR8hj5cJysA0eX2kpovvc">
+  <div class="k" data-page-node-id="7Dl0bAOz7t1kAPbfK5ykfH">VERIFYOS · 风格方向样张</div>
+  <h1 data-page-node-id="pU4Wn0ctBXsnpBHhl96VOe">同一套界面，三种气质 —— 选一个方向，我全面铺开</h1>
+  <p data-page-node-id="OVuXPAPevuOPI6pt8snQRK">三版内容完全同构（侧栏 / 顶栏 / 状态 chips / 探索卡 + AI 观察 / 执行表格 / 按钮组），只有设计语言不同。图标已全部换成 Lucide 线性图标（MIT，shadcn 官方搭档），这是后续正式开发的同款方案。</p>
+</div>
+
+<div class="wrap" data-page-node-id="YJmS2fHEy5Nf2dhuT7NnkO">
+
+<!-- ================= A · QA.tech 精修 ================= -->
+<div class="v-a" data-page-node-id="eAgLXZjHVyAdDXWDguc4wC">
+  <div class="vhead" data-page-node-id="x7DfgtG0aEicMNJAQ9vl4C"><h2 data-page-node-id="N8dcPUYxDj4iGBgdHbhjhf">A · QA.tech 精修版</h2><span class="tag" data-page-node-id="6lQbaaNtcFRu7g33AG3sV7">白底 · 黑主色 · lime 活跃色 · 网格底纹 —— 延续现有原型，修到对标水准</span><span class="pick" data-page-node-id="HqzzXKYRrxOEmqajGt3IRC">改动成本最低</span></div>
+  <div class="mini" data-page-node-id="i0ydqpVqGrgEWSqjo965wX">
+    <div class="app" data-page-node-id="qC90RvjmrosszS5y2ctdHl">
+      <aside class="sb" data-page-node-id="TWcpwCftHoijcYVq0sHUqQ">
+        <div class="logo" data-page-node-id="IR1fl29tC99qAnHfr33Gep"><div class="mk" data-page-node-id="SVNwN3A4VIRGD9YDYvqI1p">✓</div><div data-page-node-id="ZTfaDyDPPL0p0Z8m8RtQPJ"><span class="lname" data-page-node-id="B3GYHpm5Gk0UX5isEEgdgB">VerifyOS</span><span class="lt" data-page-node-id="7a1m9ICDpPgiBfNfSDYYWW">中文 AI 测试平台</span></div></div>
+        <div class="sec" data-page-node-id="b5ZOaa5IEp9InBUybiZs2y">工作区</div>
+        <div class="ni" data-page-node-id="gUJDCYqiW6BTesTKeEJ0sT"><svg class="ic" data-page-node-id="snclJ3YS6GVcbuRRszIPvJ"><use href="#i-house" data-page-node-id="HCaKamfACuXFwWipgud7qG"/></svg>概览</div>
+        <div class="ni" data-page-node-id="W23UiU7mF3mtq3Y3qg3YjY"><svg class="ic" data-page-node-id="CCqIBcruBEHvcwdSxlDANb"><use href="#i-sparkles" data-page-node-id="Id9mI2fyMzUy3RpjrQQhOY"/></svg>AI 工作区</div>
+        <div class="sec" data-page-node-id="r6ow0NM4PrDDpwL2VKNHUN">产品</div>
+        <div class="ni on" data-page-node-id="Nyh8EtUJc3tyd0g0XLB0gD"><svg class="ic" data-page-node-id="fNdmordurYBF66vRPDBzer"><use href="#i-compass" data-page-node-id="jiB6P1otS9pWrLigNvGtV9"/></svg>探索<span class="cnt" data-page-node-id="UeLlMth8Ba68BCw1vExDwg">1</span></div>
+        <div class="ni" data-page-node-id="uUujKg9qSfz1AZVsJ8Y8VG"><svg class="ic" data-page-node-id="K2xwxE4SAGU9Tk84FyIgPB"><use href="#i-target" data-page-node-id="yQZY6UuV9PH15vp76macFA"/></svg>QA 点<span class="cnt" data-page-node-id="BkbldA3rxBj11pIUaB5DzT">12</span></div>
+        <div class="ni" data-page-node-id="28WOi8qYKMfUYBm0sCVaMg"><svg class="ic" data-page-node-id="024ccqxvHQSyo9X0GYCG01"><use href="#i-play" data-page-node-id="rmp884oxNtgf8ak26BaTri"/></svg>执行<span class="cnt" data-page-node-id="W4M4SrYDqCmvbmBwPuA7mv">3</span></div>
+        <div class="ni" data-page-node-id="3KWJ2VjjxXUdyZ4Ro7WX70"><svg class="ic" data-page-node-id="p7VmJvEKHGn7NqVy1N1lri"><use href="#i-git-pull-request" data-page-node-id="XR6PoF233aualXKmlcCTsz"/></svg>PR 验证<span class="cnt" data-page-node-id="gshbm294FzWKBXt4HQzml0">1</span></div>
+        <div class="ni" data-page-node-id="uoSOUzikEwIK1ukCMyLRKf"><svg class="ic" data-page-node-id="bkaklURRmntrrDnyLFCUZG"><use href="#i-bug" data-page-node-id="PudgojV7NILksXLqOAAV2l"/></svg>问题<span class="cnt" data-page-node-id="Sa8ywP7file7VFngiwhAZF">2</span></div>
+        <div class="sec" data-page-node-id="JHAYewKeqqY7w4XRok3kdI">管理</div>
+        <div class="ni" data-page-node-id="arW6f7q9RDu9jreq7q4D67"><svg class="ic" data-page-node-id="RfTJDe2DzAFb6Phi5fKcFs"><use href="#i-key-round" data-page-node-id="ioLUKjAyIY2OIt4DJjzZxB"/></svg>凭据</div>
+      </aside>
+      <div class="main" data-page-node-id="9REXMCTBu552L9QuTN9i3u">
+        <div class="tb" data-page-node-id="CuXJ5Hb2HgrTzEzTXm6tnZ">
+          <span class="pj" data-page-node-id="DmSaJkmxjCFqOsbHVs5xyg"><svg class="ic sm" data-page-node-id="rPc8Co7d5AtRokGHzhGwsf"><use href="#i-package" data-page-node-id="KELpOiGcXHvHZlv7AZwYoq"/></svg> 订单管理系统</span><span class="cb" data-page-node-id="jVHO32S9YwWTkfv3Buk9pF">/ 探索</span>
+          <div style="flex:1" data-page-node-id="ikZJCRBFSM7tshidqiFFDg"></div>
+          <div class="sr" data-page-node-id="Q7gjmRBFeYZIYCdIjgSlkV"><svg class="ic sm" data-page-node-id="jaUAso6lr2ADq5CFHqYnyE"><use href="#i-search" data-page-node-id="duSF54voHLDliEQ0iWPNGe"/></svg>搜索 QA 点、验证、Run…<span class="kbd" data-page-node-id="NduROH1Mp1i7HQSCTIh1ty">⌘K</span></div>
+          <button class="btn primary" style="background:#18181b;color:#fff;border:none" data-page-node-id="eqGvCiyQkConcqvJV6JBfa"><svg class="ic sm" data-page-node-id="73IjW4c1kwHlNRW2JV6Zav"><use href="#i-sparkles" data-page-node-id="FroDNgDatytiOvYQmE1jdA"/></svg>AI 助手</button>
+        </div>
+        <div class="ct" data-page-node-id="YfnLMXfEDBHIeMnxQt7Etp">
+          <div class="ph" data-page-node-id="jRD5IEV1JH6fRScC95ccCF">
+            <h3 data-page-node-id="OkwZDm9HmJrWWwGVKcri7N">探索工作台</h3>
+            <span class="st" data-page-node-id="UkwbGvK8jTYZB6NgIVmK7i"><span class="d" data-page-node-id="rAfAUfaHpDx0BkDkeMlGFR"></span>Agent 执行中</span>
+            <div style="flex:1" data-page-node-id="dMwd8dHmDBaWNsTaGiesan"></div>
+            <button class="btn primary" data-page-node-id="MI56jTVUVZTACZew1OYphV"><svg class="ic sm" data-page-node-id="W9EdPoGNU69kAhL7lPE38z"><use href="#i-play" data-page-node-id="543ErABAopjhFrXu2Br6IB"/></svg>新建验证</button>
+          </div>
+          <div class="flt" data-page-node-id="AM0Kx1SqsZIGgqm59zrRxW">
+            <span class="chip green" data-page-node-id="bbSzDh745tf2vmh2aIVpTk"><span class="d" data-page-node-id="eDENHtzfFRELItNExqHTcN"></span>通过 19</span>
+            <span class="chip red" data-page-node-id="0OxnsnbAjPMl4PdKROEG5P"><span class="d" data-page-node-id="AlPRzoAsanCHlHnI1zjeUC"></span>失败 3</span>
+            <span class="chip amber" data-page-node-id="hDW8ApAxuB67PGfqwcpxXY"><span class="d" data-page-node-id="hdQPkk3354ndk9vSH1yIFy"></span>无法验证 1</span>
+            <span class="chip blue" data-page-node-id="ELk5twvwJDIie8UqhF63lU"><span class="d" data-page-node-id="RkIjIh1fakX67BwfaAtdjK"></span>执行中 1</span>
+            <span class="chip gray" data-page-node-id="pFCrKQHxVgzThtK4XArEog"><span class="d" data-page-node-id="1I5KBEKY0hgOA4k7nDyb8K"></span>未验证 6</span>
+          </div>
+          <div class="g2" data-page-node-id="xViaz1cbMFJsM4PjdoTtu9">
+            <div class="card hero-live" data-page-node-id="MHJOeaWryBADwPf3OKVmfY">
+              <h5 data-page-node-id="V3PCkiaq4Xhe2YYDH6vaF8"><svg class="ic sm" style="color:#65a30d" data-page-node-id="e00aCbDsHNqpIAGBEXB4WL"><use href="#i-compass" data-page-node-id="vlq0kEMjKyDXcRKbdDZQzX"/></svg>探索 #1025 · 订单退款流程 <span class="live" style="margin-left:auto" data-page-node-id="q3PxAglnDmXxINwPAO7pDg"><i data-page-node-id="N7MDtVbAohFXsKhJzr9rDq"></i>LIVE</span></h5>
+              <div class="bar" data-page-node-id="uOP88VGn6hVP2lnTzKEZaG"><i style="width:66%" data-page-node-id="wNVA9k60Jo4gbmJTxZeMR4"></i></div>
+              <div style="display:flex;justify-content:space-between" data-page-node-id="oKp8LgmtLCQE0tYOL182Zz"><span class="hint" data-page-node-id="71VS5eQPX29kFsvbwyIQdM">3 / 9 页面 · 已建图 17 节点</span><span class="hint" style="font-variant-numeric:tabular-nums" data-page-node-id="1KE8GQHp5Dcy9ZzJFGLP93">Intent Score 87</span></div>
+            </div>
+            <div class="card" data-page-node-id="apsaNWoXzG9oiAEXXKcCMW">
+              <div class="msg" style="margin:0" data-page-node-id="ijB2Kw284L6WeCRKCtGj3r">
+                <div class="av" data-page-node-id="XrKCFXBzGMHuRtTP61xZHZ"><svg class="ic sm" data-page-node-id="A0AS2FrC7x7yw4HiFDOAZR"><use href="#i-bot" data-page-node-id="6xzBMoAud7wQOHOgow6Bnr"/></svg></div>
+                <div class="bub" data-page-node-id="GKNnKkatHpNNBJzihfcS4n"><b style="font-size:11.5px" data-page-node-id="dQsscmz7tEWYax0YoB82al">VerifyOS Agent</b> <span class="hint" data-page-node-id="BpYBBElrmORF3DXWVRLg5Z">· 实时观察</span><br data-page-node-id="sAoIP29HozOnDcJS5eMV4t">列表页没有明显的「退款」入口，工具栏第二个按钮即「批量退款」—— 语义匹配 92%。</div>
+              </div>
+            </div>
+          </div>
+          <table class="tbl" data-page-node-id="wa6UzKHcN2JijybAUlAZCy">
+            <thead data-page-node-id="FytFAqNioMl6WLX6yzRxUR"><tr data-page-node-id="kbuz0xnlANpyh6g8tKL3ln"><th data-page-node-id="WF5UPtX2uoJNkES8v43ZwG">RUN</th><th data-page-node-id="33I8l2imhr9oNeGWjtd4xA">结果</th><th data-page-node-id="rBi6irIwqhgBAD38nkxvbc">验证</th><th data-page-node-id="t863XObg58PvmriXcqUD9x">耗时</th><th data-page-node-id="DJ6F5wvItohSdjFMFhRJvm"></th></tr></thead>
+            <tbody data-page-node-id="bzUsb4lYP11xYf2oxZffaX">
+              <tr data-page-node-id="E4KIMn7y48wh9nVIkUJgOX"><td data-page-node-id="BuUDZCKA16dLcqtuMa3lDp">RUN-1928</td><td data-page-node-id="0bEibXTYPGeZ458ZtavvG8"><span class="chip red" data-page-node-id="MQguhfVyNeEfHhFAAZakvJ"><span class="d" data-page-node-id="zRoiOrHsOlcy21ZeI7TJdp"></span>失败</span></td><td data-page-node-id="9ApugMgiyZCJcUgC7eq5yY"><b data-page-node-id="ONSEBrnK0NFiM0ggUA0Xh1">VER-001 新增员工</b></td><td class="hint" data-page-node-id="nYvaQ61RECCeAFhRLxOxzq">42s</td><td style="text-align:right" data-page-node-id="d9O12JD8aq9MAfb4NY8NtH"><button class="tbtn pri" data-page-node-id="CEc2BjQLYbbGkEOjiDAmqr">查看证据</button></td></tr>
+              <tr data-page-node-id="4nx5KEtJ38dXnjJXk5Le6m"><td data-page-node-id="ZNrKY2JkkGHySLzpWJjAwv">RUN-1926</td><td data-page-node-id="ABocOAW57sYOMXIFZ9cPsA"><span class="chip blue" data-page-node-id="f2vUY9igQVHmIDr3x0tQAO"><span class="d" data-page-node-id="95CwdcJ0PRqo8ZehB06UuK"></span>执行中</span></td><td data-page-node-id="NfmkngnSywgAdbTth1HbfD"><b data-page-node-id="T5EgAACqoylLItpPI5Dtw4">VER-004 支付后取消按钮隐藏</b></td><td class="hint" data-page-node-id="3ClFDcNdNNgAta3RUWNqeG">—</td><td style="text-align:right" data-page-node-id="k1MEeuEz2fz1kaAGgXYRX7"><button class="tbtn" data-page-node-id="LaBUFP8J29AwurFSrA6XcW">实时查看</button></td></tr>
+              <tr data-page-node-id="FhKNfkQKaELfH1BdEVhBoe"><td data-page-node-id="et5WUknAQ3S5zJA2XSbgkj">RUN-1925</td><td data-page-node-id="QumCtEbccDOCBowKEFbBbI"><span class="chip amber" data-page-node-id="se35bB5D3y5g6Mj5V43SCg"><span class="d" data-page-node-id="TzjdMBylvMtDoe7Hx26t1b"></span>无法验证</span></td><td data-page-node-id="wAGjE73GHLycKrAFuBGQNq"><b data-page-node-id="isJ7RTcXH7M1sWbDV5mQUR">VER-006 退款金额边界</b></td><td class="hint" data-page-node-id="tiB89VZEgIgGlvbHcPV5ag">38s</td><td style="text-align:right" data-page-node-id="MJnIiO32v9dbbbEEoD82tT"><button class="tbtn" data-page-node-id="rnTVLzHNolxw0BhPnU9oOv">查看</button></td></tr>
+            </tbody>
+          </table>
+          <div class="btns" data-page-node-id="A8ENmlh2YIqvvgJOpyePfm">
+            <button class="btn primary" data-page-node-id="RrKPgi5X5s6CGUarnEU7i2"><svg class="ic sm" data-page-node-id="0BzrVtGvbQOVSUPwr13ZEb"><use href="#i-play" data-page-node-id="5RV2fqY7RSbeApy3pUXdEB"/></svg>主操作</button>
+            <button class="btn" data-page-node-id="C791eo0jnf16loIMdX1wFw">次操作</button>
+            <button class="btn gh" data-page-node-id="mxpoZ5YwTf03dDIUkp6wAi">幽灵按钮</button>
+            <button class="btn danger" data-page-node-id="XBMlh4mF9RFQVBsGpoXdip"><svg class="ic sm" data-page-node-id="gMIGk5YxdEBdqQaCloGiFw"><use href="#i-trash-2" data-page-node-id="sV1Rl3UXaVbnsyAhHRM8b2"/></svg>危险操作</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= B · Linear 精密 ================= -->
+<div class="v-b" data-page-node-id="3URZZ1hEFX6tIrPwQhEs2N">
+  <div class="vhead" data-page-node-id="CeXT9g80WtzqIlkSm7CM2h"><h2 data-page-node-id="oJcL4n0GZ2ofwQ1anEovQY">B · Linear 精密版</h2><span class="tag" data-page-node-id="HFZL6h60fHtOqeJo8jQgtF">深色 · 低饱和 · 紫罗兰强调 · 细边框面板 —— 工程师审美的标杆</span><span class="pick" data-page-node-id="7MFxjw2P4bDnXtmGkJdS0R">最有"高级感"</span></div>
+  <div class="mini" data-page-node-id="6ejr4Zum7wQxZBDxH915Zw">
+    <div class="app" data-page-node-id="G4poQ13EJp2cBCXJEHASVR">
+      <aside class="sb" data-page-node-id="F2OByIWVPFgeAGK1xHYx4V">
+        <div class="logo" data-page-node-id="x5DC21Cgtr8qJyW8gAHiCZ"><div class="mk" data-page-node-id="ctkH4wQOIJ8b4QovqQWCjx">✓</div><div data-page-node-id="P8TLtcKiOWKyZA0z3cixKt"><span class="lname" data-page-node-id="7X0RUAxABkHqVnTJOeCwJS">VerifyOS</span><span class="lt" data-page-node-id="ZfogbHkGoCmy5tJySLgKET">中文 AI 测试平台</span></div></div>
+        <div class="sec" data-page-node-id="lzutRnlav4kaYaXwgDeYtx">工作区</div>
+        <div class="ni" data-page-node-id="FjcuOZGOzDEAkQs6UrSLsY"><svg class="ic" data-page-node-id="b66gUvzGbmV6nGUFolpET6"><use href="#i-house" data-page-node-id="ZUF3J8zooGkOJfVRKI3jcK"/></svg>概览</div>
+        <div class="ni" data-page-node-id="sFkmHc0hFr9le0Q1Tf8BYL"><svg class="ic" data-page-node-id="Mncs2MCa8GnDyBafyHyVXd"><use href="#i-sparkles" data-page-node-id="8ZNcVKM9bZbPYkVaI4wwrw"/></svg>AI 工作区</div>
+        <div class="sec" data-page-node-id="WdBj2OfNYIYEF2iAtdMDVw">产品</div>
+        <div class="ni on" data-page-node-id="GkNwCMyennwFR0VaYAnZQl"><svg class="ic" data-page-node-id="tU6l3N4SUigfSEeqP6Audu"><use href="#i-compass" data-page-node-id="8CANg2wnEl4vavRAjjuPqa"/></svg>探索<span class="cnt" data-page-node-id="KXOHskVKMzCcN7HotNQIu0">1</span></div>
+        <div class="ni" data-page-node-id="8iLVcXfjMc5wOcLK8t902w"><svg class="ic" data-page-node-id="ibAi0CKwBbFdLi45lOGIdD"><use href="#i-target" data-page-node-id="RRXesyWT1ybqm0QDTpngku"/></svg>QA 点<span class="cnt" data-page-node-id="Lcplkd8Agg539poAXhGne6">12</span></div>
+        <div class="ni" data-page-node-id="JrUql9rzjFB1qiNlcgDqmu"><svg class="ic" data-page-node-id="bbVEkv6XA4rusKmyKa8rvV"><use href="#i-play" data-page-node-id="CLbkss0F96eE26l1gFhYsX"/></svg>执行<span class="cnt" data-page-node-id="pTee1s8zjBYoNFQWfWAbXi">3</span></div>
+        <div class="ni" data-page-node-id="RWJBRGkFGZNfNhw58wGck0"><svg class="ic" data-page-node-id="9hoDuI0RlYL38jTjN807Ed"><use href="#i-git-pull-request" data-page-node-id="zNit8BkKaFD7ydYLSnCwVc"/></svg>PR 验证<span class="cnt" data-page-node-id="6wZ094g8Uo7rlPmeDIDXCS">1</span></div>
+        <div class="ni" data-page-node-id="J2Ihf3AA3KGvPiZMr6Smxj"><svg class="ic" data-page-node-id="gfnS7drispYDCbub9yyuDj"><use href="#i-bug" data-page-node-id="HZRxfAInXlDkM8b4zGrcTH"/></svg>问题<span class="cnt" data-page-node-id="c3aGG655ehx9gnRRUtuMsz">2</span></div>
+        <div class="sec" data-page-node-id="6VNQ1Kqe4L0Q6BIH7PoJFk">管理</div>
+        <div class="ni" data-page-node-id="AA1K8loUsx3byqvWf4p7IF"><svg class="ic" data-page-node-id="dsDEXwYmamRoFIEFJDn7MZ"><use href="#i-key-round" data-page-node-id="HoOyX1p8AWcxtEBWvPPxox"/></svg>凭据</div>
+      </aside>
+      <div class="main" data-page-node-id="VWNpj9awFQcBQBiUn4BJeh">
+        <div class="tb" data-page-node-id="f8G1eEDtXvzV2FzPvmSZt8">
+          <span class="pj" data-page-node-id="nrkqfvdZ02rYA8Ax2CCcX2"><svg class="ic sm" data-page-node-id="nGoQUbnJ7AXLgjReFILhUK"><use href="#i-package" data-page-node-id="0Xo8n885JbmXaBLgEZZmf9"/></svg> 订单管理系统</span><span class="cb" data-page-node-id="0DD642zOYiBFY3JOMZIhWR">/ 探索</span>
+          <div style="flex:1" data-page-node-id="p6Ttz0401KTKHR7wGMBwgl"></div>
+          <div class="sr" data-page-node-id="I3KlqIB6H8c5ZNVklHPloK"><svg class="ic sm" data-page-node-id="fwyJPq7KanYuC1vkyF5AT1"><use href="#i-search" data-page-node-id="JiJjCqH5quUDtyGj4Y7HEK"/></svg>搜索 QA 点、验证、Run…<span class="kbd" data-page-node-id="VlP2R2WbGuvZIsXCSglyGT">⌘K</span></div>
+          <button class="btn primary" data-page-node-id="zXO0oRXWa0662Pri0NqcvM"><svg class="ic sm" data-page-node-id="n50gxdV8NFoL1Pf3FnMX4U"><use href="#i-sparkles" data-page-node-id="zp6vmG95OAgm2MHr6mL9Mj"/></svg>AI 助手</button>
+        </div>
+        <div class="ct" data-page-node-id="qmCXlHPwqmw4tc9FDqUYgH">
+          <div class="ph" data-page-node-id="XedNfFoJDH65RMIpfC7nuj">
+            <h3 data-page-node-id="Nv8nXkWmjKyGUdyrB47Z5h">探索工作台</h3>
+            <span class="st" data-page-node-id="WNjfDomsAGbTmhp6cNuV2O"><span class="d" data-page-node-id="KmWfDqwrVZpXgB20a4kTV7"></span>Agent 执行中</span>
+            <div style="flex:1" data-page-node-id="6ixgU52hbo2jH69VWMiyhJ"></div>
+            <button class="btn primary" data-page-node-id="IHFNAX4FfYMu1VmkA2Bjhs"><svg class="ic sm" data-page-node-id="sXxCrLwXCEETCCRz9vzabW"><use href="#i-play" data-page-node-id="AKhx4DObxgjfE7XkYOPJEA"/></svg>新建验证</button>
+          </div>
+          <div class="flt" data-page-node-id="MCAJhj67MLG7Vj1jucz7X8">
+            <span class="chip green" data-page-node-id="QZICt3Q9lNcvLEgt6aQEfX"><span class="d" data-page-node-id="oeS49WymhdWCOr1oe0xNH7"></span>通过 19</span>
+            <span class="chip red" data-page-node-id="gt8fxHKHW4EUsO3p7BNB0L"><span class="d" data-page-node-id="06L9Bk239SXedjbzqAUNYq"></span>失败 3</span>
+            <span class="chip amber" data-page-node-id="8yEWyaZ9edZxTvzaMMytNi"><span class="d" data-page-node-id="mDji9kAFcyykBOb0eAWUhG"></span>无法验证 1</span>
+            <span class="chip blue" data-page-node-id="6QhDSjfB5hHJwbIhHGFiPw"><span class="d" data-page-node-id="l7XCSif5047XQYNdr8kNNW"></span>执行中 1</span>
+            <span class="chip gray" data-page-node-id="tEbqOcObrPy849bsrvGV7A"><span class="d" data-page-node-id="hCBkhO1TteNdjVDnKFH1EI"></span>未验证 6</span>
+          </div>
+          <div class="g2" data-page-node-id="cSvKn0FPBqxoKuh3BJS9jq">
+            <div class="card" data-page-node-id="5Z9QFiwZmEGsNW9GHbUmNW">
+              <h5 data-page-node-id="duNmb8HIshDiZPB50XRGwu"><svg class="ic sm" style="color:#a99cf9" data-page-node-id="BcFRpAHf0GdrPPmjVo00YT"><use href="#i-compass" data-page-node-id="iE2wCAmQ1WbFpUeBIZ3DGG"/></svg>探索 #1025 · 订单退款流程 <span class="live" style="margin-left:auto" data-page-node-id="Am9oDBBatefg0xA3c5usIT"><i data-page-node-id="UxmPkvFLvWhnlx4Gy7vrNZ"></i>LIVE</span></h5>
+              <div class="bar" data-page-node-id="UA9fBAqQL0auEKScjjFUXX"><i style="width:66%" data-page-node-id="qQZUHztN3edjRt0MjJDDR9"></i></div>
+              <div style="display:flex;justify-content:space-between" data-page-node-id="6iZpPDREBy821E6BPUklfH"><span class="hint" data-page-node-id="XzJPfMWx9Jw33DnnW3XztB">3 / 9 页面 · 已建图 17 节点</span><span class="mono" data-page-node-id="AHxHPYao9LOIKAfXcOiJW2">intent=87</span></div>
+            </div>
+            <div class="card" data-page-node-id="xL0Y5A44Y1EzmY33yLcJ4S">
+              <div class="msg" style="margin:0" data-page-node-id="zfcygqFCemkBBvcnIXGjMw">
+                <div class="av" data-page-node-id="kXshIA4qJkZGH47MqbYHGP"><svg class="ic sm" data-page-node-id="Cc82eaHZ8ecTlFGKm86HKY"><use href="#i-bot" data-page-node-id="G6QGhG5PhadsWEmOBvm8u1"/></svg></div>
+                <div class="bub" data-page-node-id="fwx5uCY2DpxLOhjy2TkOaA"><b style="font-size:11.5px" data-page-node-id="G2vkWPBZAD7qNiqcBnXfoI">VerifyOS Agent</b> <span class="hint" data-page-node-id="AIXq3rPR8tqaxyQi2Lu1FG">· 实时观察</span><br data-page-node-id="iBBwXbshdfTH190bzjB2My">列表页没有明显的「退款」入口，工具栏第二个按钮即「批量退款」—— 语义匹配 92%。</div>
+              </div>
+            </div>
+          </div>
+          <table class="tbl" data-page-node-id="USTCiWSMCsCBZ0BdF9COxb">
+            <thead data-page-node-id="q4JtLbHgDqrzIupNYjQb4w"><tr data-page-node-id="VUgKJGLZCpXnDTcKRSCsx3"><th data-page-node-id="WyHnb5YZ302BgKPDg4ATb6">RUN</th><th data-page-node-id="AANvZJ2RqfVnPRq9JgfD9F">结果</th><th data-page-node-id="i3yeEx3el7lOhH5XvAnXMG">验证</th><th data-page-node-id="h0OrB2ytJSSpuhSK3MExZH">耗时</th><th data-page-node-id="kESQLWfJQJdHN0bbHZDxfF"></th></tr></thead>
+            <tbody data-page-node-id="OxpaY1gyDcMcEUhokkncrP">
+              <tr data-page-node-id="RDzR9hkjR2c5M0lDR3nGEq"><td class="mono" data-page-node-id="oAo4FsjRDArOSf3yj9MpJu">RUN-1928</td><td data-page-node-id="jgVcbdBpqoDPakRwyXMAl5"><span class="chip red" data-page-node-id="6bGPnHLYpFLIM6b4ZgDfWy"><span class="d" data-page-node-id="a2c2i68X4eeMcjm9PQ1V4x"></span>失败</span></td><td data-page-node-id="oW52SEczOIXk9Eyz4WLaS4"><b data-page-node-id="dfr4dU3F2BXAb91atWBap3">VER-001 新增员工</b></td><td class="mono" data-page-node-id="BlG8nTXdzaW44jPlrxrcpY">42s</td><td style="text-align:right" data-page-node-id="XSNILyqkzyly6hDwcYIHqr"><button class="tbtn pri" data-page-node-id="6jrWOrwJBLJJN1BQp3jvVu">查看证据</button></td></tr>
+              <tr data-page-node-id="7rxOXMr7ln5smkqAM4FDCw"><td class="mono" data-page-node-id="3335WAxPIpz3heGtEUwlqT">RUN-1926</td><td data-page-node-id="W3z7fseLg6SsXWQTqnBtj2"><span class="chip blue" data-page-node-id="lyoajrIOS1EyZrDuv7slP9"><span class="d" data-page-node-id="rR7EbkDt6kHU7LKfd8nsOg"></span>执行中</span></td><td data-page-node-id="DllD3428fRtsC4HHxiMnNH"><b data-page-node-id="eIgoUoTT8gSoDvrUPvMxIN">VER-004 支付后取消按钮隐藏</b></td><td class="mono" data-page-node-id="9xH5KHIIywYgdYqGxBvo99">—</td><td style="text-align:right" data-page-node-id="SgUZs4OuJgvIM3OylSmFlW"><button class="tbtn" data-page-node-id="nhZcs35E5HyKj3zzzGdJa3">实时查看</button></td></tr>
+              <tr data-page-node-id="ECWCVxmPZwXaxvEPwOYnit"><td class="mono" data-page-node-id="uSM0hQJMLz15juwTlJyyUZ">RUN-1925</td><td data-page-node-id="vwOIFRnGpiPAGdtHpdlEXc"><span class="chip amber" data-page-node-id="3LJn2fBBgTcsr7gPgSY1Ms"><span class="d" data-page-node-id="9GcHkVotZv6gummrU0KTgh"></span>无法验证</span></td><td data-page-node-id="7oX0QAHh1Pb6PjEIx8vxrc"><b data-page-node-id="ZLyM6FUZCSF5fFAHWuaTi1">VER-006 退款金额边界</b></td><td class="mono" data-page-node-id="kI3jUIAOQTSfc8o3nt0tl3">38s</td><td style="text-align:right" data-page-node-id="iPwdxxsJAcbr5SAjrMmWqu"><button class="tbtn" data-page-node-id="19rI8qGAwC8n2I089C0OpE">查看</button></td></tr>
+            </tbody>
+          </table>
+          <div class="btns" data-page-node-id="vRNdltblnF6tjSQ6Z0kRh6">
+            <button class="btn primary" data-page-node-id="HAXtHRCzcoNUN4dP6r7LPi"><svg class="ic sm" data-page-node-id="vF3DBY419yM4Ktz2n5GGjY"><use href="#i-play" data-page-node-id="oEXSvVvQ6vxSEQdO20UobG"/></svg>主操作</button>
+            <button class="btn" data-page-node-id="YZhniqZotMFK3N5FhbeuXG">次操作</button>
+            <button class="btn gh" data-page-node-id="JBCloJwPLgZVFUiQqr8QXD">幽灵按钮</button>
+            <button class="btn danger" data-page-node-id="OOykwUCNg1MBmgz50zJ4Ua"><svg class="ic sm" data-page-node-id="M6bMayN1ulUIFuBU0EbD29"><use href="#i-trash-2" data-page-node-id="PJCqpcSg2ldXwBxEySXzut"/></svg>危险操作</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= C · Vercel 精度 ================= -->
+<div class="v-c" data-page-node-id="644Ly2LtC0brxaajGz3CEM">
+  <div class="vhead" data-page-node-id="5rrEXx2QSNEvYEpwtaOriu"><h2 data-page-node-id="PTzArRKehUrewIwUyJXi5U">C · Vercel 精度版</h2><span class="tag" data-page-node-id="DEEKCr54rq3SAaQcyTLIYY">极简黑白 · 单点蓝 CTA · 大数字对比 —— 冷静的 SaaS 精密感</span><span class="pick" data-page-node-id="tdW9nVCDQzBhDlWe8pYAkr">最耐看、最不出错</span></div>
+  <div class="mini" data-page-node-id="w5G8yoYnWFUmbQ3FEeCWt4">
+    <div class="app" data-page-node-id="imxXPiHl4OCDJMAufmyDg2">
+      <aside class="sb" data-page-node-id="CCNcMovVgPET1ylug7Z1Ei">
+        <div class="logo" data-page-node-id="DbMeOwWYWpyvHAy76Fb7Ht"><div class="mk" data-page-node-id="54OqGZOCA6mGgzoRwU1LFD">✓</div><div data-page-node-id="zJE00WMxSSF4N3XBzFrNV3"><span class="lname" data-page-node-id="ZWRayU8xJxjl5wGj8ru5Sm">VerifyOS</span><span class="lt" data-page-node-id="HVBgtWSFREs3mqIFf58xtR">中文 AI 测试平台</span></div></div>
+        <div class="sec" data-page-node-id="JB1ASPVZSQXlqGQrmDXvKq">工作区</div>
+        <div class="ni" data-page-node-id="ZthI8Buv1J0jlyPkysWFY3"><svg class="ic" data-page-node-id="muUT2RAdcIIgsp8jfto8SZ"><use href="#i-house" data-page-node-id="DLpgpVOcQweREb1kJAYG7h"/></svg>概览</div>
+        <div class="ni" data-page-node-id="eafMD2bm4GF7SEvVzGmLoJ"><svg class="ic" data-page-node-id="0JicW5moPxttjjuwVR9NjK"><use href="#i-sparkles" data-page-node-id="ggJoRWRJo0AP4f7eNLtl3C"/></svg>AI 工作区</div>
+        <div class="sec" data-page-node-id="lO53LqgwNxSujG3wB3lUO0">产品</div>
+        <div class="ni on" data-page-node-id="44iYHjdpmXTlWTukaITMf3"><svg class="ic" data-page-node-id="qKavyBhq8SPYyBqYZsfOd1"><use href="#i-compass" data-page-node-id="jQFTN4aEltWUTk5yyxRlp6"/></svg>探索<span class="cnt" data-page-node-id="4hNkowWIf4fi18TxFe1suL">1</span></div>
+        <div class="ni" data-page-node-id="bwmCHfZhVt2mn3RbUW1W1Y"><svg class="ic" data-page-node-id="htgYpNMP9zuDe4jCVhXJFb"><use href="#i-target" data-page-node-id="MS68o78PI81HGvVDV6iJiH"/></svg>QA 点<span class="cnt" data-page-node-id="TdKBAXM59SVih7VBRfTkFE">12</span></div>
+        <div class="ni" data-page-node-id="Pvi7sE6DKSd0d2p9VPzfLs"><svg class="ic" data-page-node-id="8vdeTNxUheyYKL3txZInt0"><use href="#i-play" data-page-node-id="EEtzPKsgHwd5prGICLBTXH"/></svg>执行<span class="cnt" data-page-node-id="0BsrUfgon6jCG5v5piFDHI">3</span></div>
+        <div class="ni" data-page-node-id="O7QJFtZ6RkXSbWq2nG6CUV"><svg class="ic" data-page-node-id="M7uWn33ONBebMLCK8nE07k"><use href="#i-git-pull-request" data-page-node-id="kVn9ydiFjdpcoBYecf8zwY"/></svg>PR 验证<span class="cnt" data-page-node-id="EBHwFSDl5du0DmRTaPESxh">1</span></div>
+        <div class="ni" data-page-node-id="Z6q5sde8qiGcrKIUEQ3w28"><svg class="ic" data-page-node-id="FdYBCivrHhTkHi8kf0sKro"><use href="#i-bug" data-page-node-id="98sNIMywWl80IAQL2GILYA"/></svg>问题<span class="cnt" data-page-node-id="y5eeHPZC5DqW60sEKlI9zW">2</span></div>
+        <div class="sec" data-page-node-id="9NLCNSHnQhwdz4KcXOvjo1">管理</div>
+        <div class="ni" data-page-node-id="Dq22N4rcW9bXz8mUEt3qsX"><svg class="ic" data-page-node-id="piUqkC88aTX6cUs30WDMKd"><use href="#i-key-round" data-page-node-id="csaFks13aa7XSfEEu0z99f"/></svg>凭据</div>
+      </aside>
+      <div class="main" data-page-node-id="vWjpWb0tpAoJtAKfwCfp7D">
+        <div class="tb" data-page-node-id="Eh4STRZwWV0k8XUqlZz068">
+          <span class="pj" data-page-node-id="FkJb4EtuAsaPCQqXB99Zoy"><svg class="ic sm" data-page-node-id="kSo1OvDzyc5rlCBcro6313"><use href="#i-package" data-page-node-id="wiB1QO4opC01dNT15LjZ9u"/></svg> 订单管理系统</span><span class="cb" data-page-node-id="5m3YMaE4q2zrfQjgFZeJHB">/ 探索</span>
+          <div style="flex:1" data-page-node-id="UYR0Ypq9e8OzYyTdDkwN5i"></div>
+          <div class="sr" data-page-node-id="bB8ixOBi2qO0Y1f5jspTuo"><svg class="ic sm" data-page-node-id="bvneCbWrwsbXDYqQ2SxogD"><use href="#i-search" data-page-node-id="QjYuD62p1GyI6ZPaYjhHvU"/></svg>搜索 QA 点、验证、Run…<span class="kbd" data-page-node-id="BYujdARk0xhnkACG6dij3B">⌘K</span></div>
+          <button class="btn primary" data-page-node-id="Dfrar5eEBt3qN5YkE6qTFw"><svg class="ic sm" data-page-node-id="4vwAL6ND7Mo6dA3Iz9dOgl"><use href="#i-sparkles" data-page-node-id="SBV4536y5EjvjbvLMK2IeB"/></svg>AI 助手</button>
+        </div>
+        <div class="ct" data-page-node-id="wb5WaMvDFMFQwuSrZH1Ewr">
+          <div class="ph" data-page-node-id="cKYKs6KBpGKwTiYny7sfxn">
+            <h3 data-page-node-id="Twnq1Gn5nkLCDtcD3dfRnb">探索工作台</h3>
+            <span class="st" data-page-node-id="qGu9QCOdEFgfTV98FUSBir"><span class="d" data-page-node-id="tBft8KaoLTxcRVlz0HTtzD"></span>Agent 执行中</span>
+            <div style="flex:1" data-page-node-id="MlOq7bKXcUrWEAw0zUDGCz"></div>
+            <button class="btn dark" data-page-node-id="2lkzakzad4PqTGuqxiuUdq"><svg class="ic sm" data-page-node-id="ZGAYxIf70gFqLN1mnCmVpX"><use href="#i-play" data-page-node-id="yxw3IugFpPNJsx03kjVC2v"/></svg>新建验证</button>
+          </div>
+          <div class="flt" data-page-node-id="EY6MDr5dBbe9aa0J7mYWph">
+            <span class="chip green" data-page-node-id="S8oba2N1XXU1dTJABa48Sz"><span class="d" data-page-node-id="mArkDQoQOTOn4DNBb3KedE"></span>通过 19</span>
+            <span class="chip red" data-page-node-id="XudqGoAr8suVtGQZBiOn3S"><span class="d" data-page-node-id="eUjGL7o2U4E1LYXxmHpLLJ"></span>失败 3</span>
+            <span class="chip amber" data-page-node-id="uvjt5oo3JDjpDmVShtniuB"><span class="d" data-page-node-id="d8ICFj69iuSDoiNI6BAJMr"></span>无法验证 1</span>
+            <span class="chip blue" data-page-node-id="oFAY5LzN4GkQjAtCiNk90o"><span class="d" data-page-node-id="RKKEkELOlkT7Dmxnel34CO"></span>执行中 1</span>
+            <span class="chip gray" data-page-node-id="6XVE8PDFY1vVAUeBBs74Kf"><span class="d" data-page-node-id="B5gI6czJaNFap3RTvjsaIS"></span>未验证 6</span>
+          </div>
+          <div class="g2" data-page-node-id="uJfjOQWNqGeQ1003077rLK">
+            <div class="card" data-page-node-id="0MjSGuu9bFGpVM86COenft">
+              <h5 data-page-node-id="DoYM0HBNHYQi2oxFUyLi34"><svg class="ic sm" data-page-node-id="rSyLx2qr9fzLPUBIotGAi2"><use href="#i-compass" data-page-node-id="c60JLGyk8Tc1xj8CTQzSdJ"/></svg>探索 #1025 · 订单退款流程 <span class="live" style="margin-left:auto" data-page-node-id="Pz5nR6sahPsCALgAUOrXox"><i data-page-node-id="qT5BFsFkTnXwdARno2cTFk"></i>LIVE</span></h5>
+              <div style="display:flex;align-items:baseline;gap:8px;margin-top:6px" data-page-node-id="CZxCWPrSSLqv7bfGxKjS4Y"><span class="big" data-page-node-id="TQTDVg8NCS24a1eF8rlTtc">17</span><span class="hint" data-page-node-id="uaavkbPgos53nIFiuXIn88">节点已建图 · 3 / 9 页面</span></div>
+              <div class="bar" data-page-node-id="gpgR4Fmssrm3GNrcUB0owX"><i style="width:66%" data-page-node-id="MFDpZpqrCfq5UvJqQyOnnI"></i></div>
+            </div>
+            <div class="card" data-page-node-id="5UTWpdHy5YWAfO0S9V403m">
+              <div class="msg" style="margin:0" data-page-node-id="3xUxyctMx8gZCdpNJGgXGD">
+                <div class="av" data-page-node-id="yyt5Dfg5Dq0dLkEX27TaYK"><svg class="ic sm" data-page-node-id="XHGD8rU0qnE1G3MqbE1Ye8"><use href="#i-bot" data-page-node-id="EG4BX1PR4gBmIngQab9stk"/></svg></div>
+                <div class="bub" data-page-node-id="ZJqF0T0Hg4E9DjtVYs3WES"><b style="font-size:11.5px" data-page-node-id="I48nCkUxABGOtwuv3qJNfT">VerifyOS Agent</b> <span class="hint" data-page-node-id="2X2nsClm5ZXjwy8erYwj31">· 实时观察</span><br data-page-node-id="nVtLB2L8cd5C6bEa6OC7v8">列表页没有明显的「退款」入口，工具栏第二个按钮即「批量退款」—— 语义匹配 92%。</div>
+              </div>
+            </div>
+          </div>
+          <table class="tbl" data-page-node-id="LFuqRtAapkyz0eOTxpaEKn">
+            <thead data-page-node-id="mnymCVhvorByHZQNZEs4Wy"><tr data-page-node-id="aJVoAhVrqfowczJ9l2TkMd"><th data-page-node-id="7RvDbfWGXMsja6HP3ztzS0">RUN</th><th data-page-node-id="bdqr1JY6nHfU6Y1IoLhFL3">结果</th><th data-page-node-id="XTggjkrHu71cigw9DciMLr">验证</th><th data-page-node-id="esa5BJan9BZfiUo0Mrc9EF">耗时</th><th data-page-node-id="9TCe80MRVDZolHbObfE36N"></th></tr></thead>
+            <tbody data-page-node-id="PROKembbtmDbFcyltEbYyx">
+              <tr data-page-node-id="zP0QVygEeivbqA755K4yNt"><td data-page-node-id="dojS9FeJg0tEKzcVH2f6ot">RUN-1928</td><td data-page-node-id="HbROdWw2CiqgPSsRASyIg7"><span class="chip red" data-page-node-id="a1zFRlbOAlAE6UpbBoBRcU"><span class="d" data-page-node-id="5pAEXE1RsxsNPv7LeOUbyS"></span>失败</span></td><td data-page-node-id="T8rXfWEA3A6a9oawsohM5J"><b data-page-node-id="OGKtzMGYfBD0cDpcNAWR2u">VER-001 新增员工</b></td><td class="hint" data-page-node-id="ONQ8CACYZzBgZXIUxybJtG">42s</td><td style="text-align:right" data-page-node-id="55fYqDA14DrlODOZsKoex0"><button class="tbtn pri" data-page-node-id="BqbbWA4XZ9ztFrrUzc78Ay">查看证据</button></td></tr>
+              <tr data-page-node-id="SmUt0FY5TnPRgMuukKrf1k"><td data-page-node-id="zISXyiCYqvKo37Ztk8Lxfk">RUN-1926</td><td data-page-node-id="NDEcYcHx6lChE9YEypomVw"><span class="chip blue" data-page-node-id="cdxEL0dTDXuo11D2nYEdcY"><span class="d" data-page-node-id="nsFGbHJhhJfCLADUGxuRGG"></span>执行中</span></td><td data-page-node-id="3BU6KfZiA2bnqD4caMYCUk"><b data-page-node-id="m6Of2hOwi9a3Ij3YVgLEtv">VER-004 支付后取消按钮隐藏</b></td><td class="hint" data-page-node-id="kATmSzwEyK5XLL6HbqJlKM">—</td><td style="text-align:right" data-page-node-id="9rpih4PFBLHyZ4b2P2FSCh"><button class="tbtn" data-page-node-id="jFB3F544uD26YWVGxIlKGc">实时查看</button></td></tr>
+              <tr data-page-node-id="5EdPaast4Ke6emmB3koOFr"><td data-page-node-id="rFmIn8w7La4Vq5QpYYDxiV">RUN-1925</td><td data-page-node-id="ED3pvl3KyaHdl4uVEARZKB"><span class="chip amber" data-page-node-id="AnPRa0Spcqi3fdQYPcCgCH"><span class="d" data-page-node-id="T2P41jHcV4rHmmX2VOfehL"></span>无法验证</span></td><td data-page-node-id="JLBD8iy6ToAUlWLX9dYLHm"><b data-page-node-id="UeFxKsOYvBEmZzqv38Rhho">VER-006 退款金额边界</b></td><td class="hint" data-page-node-id="li2utEVEASnReagakEolwA">38s</td><td style="text-align:right" data-page-node-id="EG3OIL7ZL74FdHHkyBoVbS"><button class="tbtn" data-page-node-id="aZVzftvOjnbOBLLAh1mVFS">查看</button></td></tr>
+            </tbody>
+          </table>
+          <div class="btns" data-page-node-id="hwS9IUMJZS7oySD9FY4vrD">
+            <button class="btn dark" data-page-node-id="C9xmiVHkeQNZ4AuwEmHyOs"><svg class="ic sm" data-page-node-id="Vpsgz9CWXd3Tb2GXveO8mO"><use href="#i-play" data-page-node-id="BzzkqcdXUlUOFQLbeI1rX9"/></svg>主操作</button>
+            <button class="btn primary" data-page-node-id="q6ieGHprsWb7CCoi92dHSX"><svg class="ic sm" data-page-node-id="pcFZYjWSxdgokYXGdWW56H"><use href="#i-sparkles" data-page-node-id="AIlQQxXPMGkxJu3KKoINFu"/></svg>AI 操作</button>
+            <button class="btn" data-page-node-id="REe2gASMqXceXlA5xazqsA">次操作</button>
+            <button class="btn danger" data-page-node-id="DFLkohM5d4VMqjyriCU8b0"><svg class="ic sm" data-page-node-id="fJPGpwwfKtMcsqa5IViWkl"><use href="#i-trash-2" data-page-node-id="9IXogcNAhOt9GNNJqZK9iF"/></svg>危险操作</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="cmp" data-page-node-id="cTRGCoOSbdp76HWyrbSqWU">
+  <h3 data-page-node-id="D21YE8mhPEhw7QKU7wQI3D">三版对比 & 正式开发的成熟组件映射</h3>
+  <table data-page-node-id="2vYYwgAQRn6yjQkmV8eCZZ">
+    <tr data-page-node-id="kgMBbaPunikKqDOtea1akg"><th data-page-node-id="2UAgvurn0rH3KPFWErPDLh">维度</th><th data-page-node-id="qLTk2FKWGi0SDfhm7QWABw">A · QA.tech 精修</th><th data-page-node-id="jSrhgUMz4ss8nm4Zrq5wae">B · Linear 精密</th><th data-page-node-id="mC8omz5RVTsIQmlLi1M7yD">C · Vercel 精度</th></tr>
+    <tr data-page-node-id="CJkTsytb4FNmxyVn2sAghu"><td data-page-node-id="xss8539drIpqCnVUdkEJya">基调</td><td data-page-node-id="2xuh0YBJbyyy2HLmw7boyk">白底 + 黑主色 + lime 活跃</td><td data-page-node-id="uV4Bz11IQqYCIGJHBojEGP">深色面板 + 紫罗兰</td><td data-page-node-id="JjqSYUfTW4I8VdRLJSUIgD">灰白分层 + 黑/蓝双 CTA</td></tr>
+    <tr data-page-node-id="HON2zC2d3tz8NE21vbhJnH"><td data-page-node-id="0OE4ySA1gm5Njl5nQaANMs">色板</td><td class="sw" data-page-node-id="I0EotrcCR9RVgr6tWbRizw"><i style="background:#fff;border:1px solid #e5e5e5" data-page-node-id="vwcpcu4TooF5XuOG4M4Lgr"></i><i style="background:#18181b" data-page-node-id="Tvw1RE9AkHJhXhq64QNbKF"></i><i style="background:#a3e635" data-page-node-id="DthRaMemQu6csNTr7ON58I"></i><i style="background:#fef2f2" data-page-node-id="g03tK38NbWStuKQn81LVaw"></i></td><td class="sw" data-page-node-id="IfxAHp8sbxmdqK21Y6F2H0"><i style="background:#101014" data-page-node-id="87IgIZEdEfKThLgPQ7mgpl"></i><i style="background:#7c6cf0" data-page-node-id="ZkAxsSsPzQWl2Z7dbKPbio"></i><i style="background:#1d1d24" data-page-node-id="D0zl9NhBUXfEULOg9HC1s5"></i><i style="background:#6ee7a0" data-page-node-id="LKgYYOqLL9l33AjLosntXw"></i></td><td class="sw" data-page-node-id="TVAsISFbTiBbs2IKW5AnJW"><i style="background:#fafafa;border:1px solid #e5e5e5" data-page-node-id="XLHDuILlZ53lb5D36HSrjG"></i><i style="background:#171717" data-page-node-id="JHf37gRHh9IMoR0M6ZBX29"></i><i style="background:#0069ed" data-page-node-id="wx5br7M5trBL0Hi7kSNYXy"></i><i style="background:#f4f4f4" data-page-node-id="FKJ39JFfXypihKNNr8dzzs"></i></td></tr>
+    <tr data-page-node-id="VGR5TTAl4pSHaEbuB5zWfR"><td data-page-node-id="8BvqCqzR8BOsJYx6hDPdA8">适合</td><td data-page-node-id="u4ukHtvhm2DEfA994enTw0">演示汇报最讨喜；与竞品对标直观</td><td data-page-node-id="l9R8TFDSoyxPxzd7xtx9Gk">开发者/测试工程师日用，长时间盯屏不累</td><td data-page-node-id="AbeYHTXahPuDt8KBDWVa41">最稳妥的中性气质，评审不易有反对票</td></tr>
+    <tr data-page-node-id="9JiPQ2qzK92pkEKQdD2BcB"><td data-page-node-id="sH0BCLLD5L6izssJ5ld08i">签名细节</td><td data-page-node-id="xgfiQrdV9bc5Be8zPOVGSy">网格底纹 · lime 流光进度条 · 黑色导航激活</td><td data-page-node-id="IG8KF623C3SZPuRCOWKyYx">左缘激活指示条 · mono 数据 · 内描边层级</td><td data-page-node-id="9gFrWC6HhiVxHREDE6otdW">backdrop 顶栏 · 26px 大数字 · 双层 CTA</td></tr>
+    <tr data-page-node-id="jKEVSbLPVo1ZTl7VuOdKOS"><td data-page-node-id="p0ONEyJeld2cLTqLDEAJCB">shadcn 主题</td><td data-page-node-id="UB6BCjncLkvAhjohzMnfMj">light + lime accent</td><td data-page-node-id="dwebK6zsyu7JO07GitpgDK">dark + violet accent</td><td data-page-node-id="87s42iUaIXYkmyArH4cxts">light + neutral</td></tr>
+  </table>
+  <p class="note" style="margin-top:14px" data-page-node-id="3Y1pMjATKijZAGkZfk3uYX">正式开发组件映射：<b data-page-node-id="1JnC0kIArtv37KWGe5i0ub">shadcn/ui</b>（Button/Card/Table/Tabs）· <b data-page-node-id="IS92LXdCCv7J8my8tCXM1w">lucide-react</b>（本样张同款图标）· <b data-page-node-id="YeotKpvjVu7tVkvSWMejyx">framer-motion</b>（入场/微交互）· <b data-page-node-id="b1qur0CEFY2Rkg1Jo7dHRJ">sonner</b>（toast）· <b data-page-node-id="LqS0addPNtCnujfZtH1VsW">vaul</b>（Drawer）· <b data-page-node-id="ZcQu9uwtDXa6smBe5faWnb">cmdk</b>（⌘K 搜索）· <b data-page-node-id="1oArwm6jmWEOGA8WXXvXq8">@assistant-ui/react</b>（AI 会话）—— 均为 MIT/Apache-2.0。</p>
+</div>
+
+<!-- Lucide sprite -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none" data-page-node-id="wWWeofUNVUGd7f6PzFVgEt"><symbol id="i-bot" viewBox="0 0 24 24" data-page-node-id="T0YVsR5djx9w984vBVnepO"><path d="M12 8V4H8" data-page-node-id="oTBXH3q59A3YiRFs0ggjbG"/><rect width="16" height="12" x="4" y="8" rx="2" data-page-node-id="7x97bXmZphSrXsMJm3NnHn"/><path d="M2 14h2" data-page-node-id="A6KQQ54TtvOBqNAMmevuCs"/><path d="M20 14h2" data-page-node-id="PhEkjBtnjOI8tr7XemZPQ7"/><path d="M15 13v2" data-page-node-id="tcWG51qidBKSP9GWLN01fg"/><path d="M9 13v2" data-page-node-id="27Ew68LjKx6QGRXxHmrcar"/></symbol><symbol id="i-bug" viewBox="0 0 24 24" data-page-node-id="Ujn0ZJMextXBeG7w32c1Qd"><path d="m8 2 1.88 1.88" data-page-node-id="zMVheunsTAuvczgiHD4jb6"/><path d="M14.12 3.88 16 2" data-page-node-id="BwSgsBm0b5olkQeYmw2c5k"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1" data-page-node-id="eCbaOmRsBfza51Ey3JpQWq"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6" data-page-node-id="2ylvbGRhg72Hu5kiNIt6YL"/><path d="M12 20v-9" data-page-node-id="ItaMiJspSz6yCd6byTo1x6"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5" data-page-node-id="hjDfb1tnHZXEPJHdStE941"/><path d="M6 13H2" data-page-node-id="7YYQksH4wjTqeApkOiACFQ"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4" data-page-node-id="8aUnpGZ5xkGIXFXBwSZtMo"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4" data-page-node-id="jdQTgw6i8Xg4U1E3nseupy"/><path d="M22 13h-4" data-page-node-id="p6HRAODCUXI5mzyxesVkUR"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4" data-page-node-id="NHnVN1UicUHG7b8fcSOyFa"/></symbol><symbol id="i-chart-column" viewBox="0 0 24 24" data-page-node-id="KEwE6T0BbBtx70WNJ2nxYT"><path d="M3 3v16a2 2 0 0 0 2 2h16" data-page-node-id="dlHbCaX9DNln7mc3sK7lUU"/><path d="M18 17V9" data-page-node-id="T2FK6U7g6zCOgxtQkBRP16"/><path d="M13 17V5" data-page-node-id="fy8ulVN044vCtlRuhCKHTg"/><path d="M8 17v-3" data-page-node-id="JC15lrE7TmaMnItefeFye8"/></symbol><symbol id="i-compass" viewBox="0 0 24 24" data-page-node-id="D0yeVre3MgzPtbXKAo4VzL"><circle cx="12" cy="12" r="10" data-page-node-id="mf3zm9NWIF1xaqf37FICjx"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" data-page-node-id="ylh64i8HbqeHBJq5pSZIMk"/></symbol><symbol id="i-file-text" viewBox="0 0 24 24" data-page-node-id="mCGsHK6K6CELS3iTxtN9Qs"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" data-page-node-id="9KmHZAWdurGQMO8tFQzV3K"/><path d="M14 2v4a2 2 0 0 0 2 2h4" data-page-node-id="GLuuCkbcuM5jDYHHkPSDGn"/><path d="M10 9H8" data-page-node-id="3qKCQdDCISWpzZOuYB5ORl"/><path d="M16 13H8" data-page-node-id="ur4Y54JbIxpLv2meiuU5dS"/><path d="M16 17H8" data-page-node-id="mvNrHoW8qeoGKfLjpZ2GUo"/></symbol><symbol id="i-git-pull-request" viewBox="0 0 24 24" data-page-node-id="KnOe3wn2Wpy8WHWbnvZkGB"><circle cx="18" cy="18" r="3" data-page-node-id="6oGC4SDEkcuCfKg8lWgYQv"/><circle cx="6" cy="6" r="3" data-page-node-id="UrBqM7jvbZIqoZrrAA8qfh"/><path d="M13 6h3a2 2 0 0 1 2 2v7" data-page-node-id="EvkdLQ1n0NBIqITiQfrB3Y"/><path d="M6 9v12" data-page-node-id="ZS06w8hpZFGN6sVhkG948S"/></symbol><symbol id="i-house" viewBox="0 0 24 24" data-page-node-id="G8WkiSIT8Mi2dl7FbpiwyH"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" data-page-node-id="cXMHAQKMhrEhEZk3lazRPn"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" data-page-node-id="4qcbHOxOE7iMNbZwGbsN9t"/></symbol><symbol id="i-key-round" viewBox="0 0 24 24" data-page-node-id="Q11t0sE93Ee8FJc1GRVLXn"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" data-page-node-id="c9BBmRdRp4GBpF4SohegAR"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor" data-page-node-id="wOKlMQkzilHiEGVYRPIzQY"/></symbol><symbol id="i-package" viewBox="0 0 24 24" data-page-node-id="uYooFoz4TjnYHg6Xakb2dy"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z" data-page-node-id="FLrRnjAJWUHrmJ18GtIsnd"/><path d="M12 22V12" data-page-node-id="u0Vv2rR3KRWW5LdBoRGxPT"/><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7" data-page-node-id="FbYux5q46y6rh4bSqkXECd"/></symbol><symbol id="i-play" viewBox="0 0 24 24" data-page-node-id="GNsr3QEDQrKjLHpJbEaUNM"><polygon points="6 3 20 12 6 21 6 3" data-page-node-id="YDL9cACEmB9CxjLpBv46ks"/></symbol><symbol id="i-search" viewBox="0 0 24 24" data-page-node-id="4Vvuy3bh8iO3VmBCYAu0ov"><circle cx="11" cy="11" r="8" data-page-node-id="JeTGC13mXeGE9d3rMzocvm"/><path d="m21 21-4.3-4.3" data-page-node-id="9M4y5cjIx9zt7Hx0r5BPc5"/></symbol><symbol id="i-sparkles" viewBox="0 0 24 24" data-page-node-id="U0Y4hCisWdd7AI10ka2s4U"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" data-page-node-id="HxNsSF9Lp1mt68fY9rfHSR"/><path d="M20 3v4" data-page-node-id="zwuiCn34PEpS7BlChEqnXl"/><path d="M22 5h-4" data-page-node-id="nNQwHkVOm0k2BNa2c7LA3z"/><path d="M4 17v2" data-page-node-id="Lg4v0L9aU7QSMeudFjxAxX"/><path d="M5 18H3" data-page-node-id="TkMBf6zTdoCZ3bUsuuvORq"/></symbol><symbol id="i-target" viewBox="0 0 24 24" data-page-node-id="eo2VWVHsvm2w9Sljx6aGL9"><circle cx="12" cy="12" r="10" data-page-node-id="g8zzKY3UUJBUgPjkmn1Mq7"/><circle cx="12" cy="12" r="6" data-page-node-id="dEOJoidPXJrHdzqiJldW4e"/><circle cx="12" cy="12" r="2" data-page-node-id="HxjUz2977dBSt9MUwiBOHJ"/></symbol><symbol id="i-trash-2" viewBox="0 0 24 24" data-page-node-id="A0cEhFE9U81BcmdR0bD6pn"><path d="M3 6h18" data-page-node-id="Iuixr1zlFvX1PWDuVmh041"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" data-page-node-id="6lPaavEm58vv7OblQulH0i"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" data-page-node-id="QJVmzjsDODeUpWShPvBYCj"/><line x1="10" x2="10" y1="11" y2="17" data-page-node-id="rUik0zTThuBN5DMTUms5BK"/><line x1="14" x2="14" y1="11" y2="17" data-page-node-id="Ax32f7FVBV7ROI3rfv4hEv"/></symbol></svg>
+
+</body>
+</html>

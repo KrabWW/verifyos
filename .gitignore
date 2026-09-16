@@ -1,0 +1,37 @@
+# === 环境变量（真实密钥只存本地，绝不提交；模板见 .env.example，生成用 bash scripts/setup-llm.sh）===
+.env
+.env.local
+.env.*.local
+
+# === 依赖 ===
+node_modules/
+**/node_modules/
+
+# === 构建产物 ===
+dist/
+**/dist/
+dist_stale*/
+build/
+*.map
+*.tsbuildinfo
+
+# === 测试/运行产物 ===
+out/
+.playwright-cli/
+.scratch/
+.playwright/
+**/.tmp/
+
+# === 项目工作记忆（含排查记录）===
+.workbuddy/
+
+# === DSH 备份（与项目无关 + 含密钥）===
+dsh-backup-20260908/
+
+# === 系统/临时 ===
+.DS_Store
+*.log
+downloads/
+
+# === 符号链接（指向项目自身）===
+76d2ed6e27d2ffd06d321cacd4653f8c

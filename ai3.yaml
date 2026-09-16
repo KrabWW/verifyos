@@ -1,0 +1,62 @@
+- generic [ref=e3]:
+  - heading "AI Drawer 临时演示页" [level=1] [ref=e4]
+  - generic [ref=e5]:
+    - 'button "已选: GET /users/:id（gen-case）" [ref=e6]'
+    - 'button "场景: 下单流程 · 2 fail（diagnose）" [ref=e7]'
+    - 'button "覆盖: PUT /orders/:id · 40%（gen-case）" [ref=e8]'
+    - button "通用助手（chat）" [ref=e9]
+  - button "打开抽屉" [ref=e10]
+  - generic [ref=e11]:
+    - generic: AI 助手
+    - button "打开 AI 助手" [ref=e12]
+  - complementary "AI 助手" [ref=e18]:
+    - generic [ref=e19]:
+      - heading "AI 助手" [level=2] [ref=e22]
+      - button "GLM-4.6" [ref=e24]
+      - button "关闭" [ref=e27]
+    - generic [ref=e31]:
+      - generic [ref=e32]:
+        - generic [ref=e33]: 上下文
+        - 'button "已选: GET /users/:id" [ref=e35]'
+      - generic [ref=e38]:
+        - generic [ref=e39]: 方法论
+        - button "边界值" [ref=e40]
+        - button "等价类" [ref=e41]
+        - button "异常路径" [ref=e42]
+        - button "鉴权绕过" [ref=e43]
+        - button "并发安全" [ref=e44]
+      - generic [ref=e45]:
+        - button "当前上下文" [ref=e46]
+        - button "自由对话" [ref=e47]
+    - generic [ref=e48]:
+      - generic [ref=e49]: 帮我为 GET /users/:id 生成测试用例，覆盖边界与鉴权。
+      - generic [ref=e53]:
+        - generic [ref=e54]: 基于该接口的 OpenAPI 契约与最近 200 条流量样本，生成 3 条用例：覆盖正常路径、id 边界值（0 / 越界 / 超长）、以及无 Token 的鉴权绕过场景。
+        - generic [ref=e55]:
+          - generic [ref=e56] [cursor=pointer]:
+            - checkbox "用例 正常查询用户详情，断言 200 + schema GET /users/:id" [checked] [ref=e57]
+            - generic [ref=e58]:
+              - generic [ref=e59]:
+                - generic [ref=e60]: 用例
+                - generic [ref=e61]: 正常查询用户详情，断言 200 + schema
+              - generic [ref=e62]: GET /users/:id
+          - generic [ref=e63] [cursor=pointer]:
+            - checkbox "边界 边界值：id=0 / 999999999 / 超长字符串 GET /users/:id" [checked] [active] [ref=e64]
+            - generic [ref=e65]:
+              - generic [ref=e66]:
+                - generic [ref=e67]: 边界
+                - generic [ref=e68]: 边界值：id=0 / 999999999 / 超长字符串
+              - generic [ref=e69]: GET /users/:id
+          - generic [ref=e70] [cursor=pointer]:
+            - checkbox "安全 鉴权绕过：无 Token 请求，断言 401 GET /users/:id" [ref=e71]
+            - generic [ref=e72]:
+              - generic [ref=e73]:
+                - generic [ref=e74]: 安全
+                - generic [ref=e75]: 鉴权绕过：无 Token 请求，断言 401
+              - generic [ref=e76]: GET /users/:id
+          - button "同步 2 条入库" [ref=e85]
+    - generic [ref=e77]:
+      - generic [ref=e78]:
+        - textbox "继续描述你的意图…" [ref=e79]: 为当前接口生成一组测试用例，覆盖正常路径与异常路径
+        - button "发送" [ref=e80]
+      - generic [ref=e84]: "当前模式：结合「已选: GET /users/:id」回答，产出可同步入库"
