@@ -41,6 +41,22 @@ export interface PrConfig {
   files: string[];
   /** 要跑的验证标题（空数组 = 跑全部影响分析建议） */
   verifications: string[];
+  /** ② 硬断言步骤（真实 UI 操作链，MR 回归时追加在登录+AI 回归之后；空 = 不追加） */
+  hardSteps: HardStepCfg[];
+}
+
+/** ② config 里的硬断言步骤定义（verifyos.config.yaml pr.hardSteps 列表项）。
+ *  goto 支持 {{envUrl}} 占位（渲染为项目环境 url）。 */
+export interface HardStepCfg {
+  title: string;
+  goto?: string;
+  /** 确定性动作链（零 LLM） */
+  actions?: Array<{ type: string; selector?: string; value?: string; url?: string }>;
+  /** AI 步骤指令（提供时 kind=ai，忽略 actions） */
+  ai?: string;
+  assert?: { kind: string; value: string };
+  /** 触达校验 URL 子串（防假绿） */
+  targetRef?: string;
 }
 
 export interface VerifyosConfig {
@@ -60,6 +76,7 @@ export function defaultPrConfig(): PrConfig {
     branches: [],
     files: [],
     verifications: [],
+    hardSteps: [],
   };
 }
 
@@ -228,6 +245,26 @@ function normalizePr(raw: unknown): PrConfig {
   base.branches = asStringArray(o.branches);
   base.files = asStringArray(o.files);
   base.verifications = asStringArray(o.verifications);
+  // ② 硬断言步骤解析：容错归约（非法项丢弃，不阻塞 webhook）
+  if (Array.isArray(o.hardSteps)) {
+    base.hardSteps = o.hardSteps.map(asRecord).map((s) => ({
+      title: String(s.title ?? '硬断言步骤'),
+      ...(typeof s.goto === 'string' ? { goto: s.goto } : {}),
+      ...(Array.isArray(s.actions)
+        ? { actions: s.actions.map(asRecord).map((a) => ({
+            type: String(a.type ?? 'click'),
+            ...(typeof a.selector === 'string' ? { selector: a.selector } : {}),
+            ...(typeof a.value === 'string' ? { value: a.value } : {}),
+            ...(typeof a.url === 'string' ? { url: a.url } : {}),
+          })) }
+        : {}),
+      ...(typeof s.ai === 'string' ? { ai: s.ai } : {}),
+      ...(s.assert && typeof s.assert === 'object'
+        ? { assert: (() => { const a = asRecord(s.assert); return { kind: String(a.kind ?? ''), value: String(a.value ?? '') }; })() }
+        : {}),
+      ...(typeof s.targetRef === 'string' ? { targetRef: s.targetRef } : {}),
+    }));
+  }
   return base;
 }
 
@@ -294,6 +331,7 @@ export function mergePrConfig(base: PrConfig, ...layers: Array<Partial<PrConfig>
     branches: [...base.branches],
     files: [...base.files],
     verifications: [...base.verifications],
+    hardSteps: base.hardSteps.map((s) => ({ ...s })),
   };
   for (const layer of layers) {
     if (!layer) continue;
@@ -301,6 +339,7 @@ export function mergePrConfig(base: PrConfig, ...layers: Array<Partial<PrConfig>
     if (layer.branches !== undefined) out.branches = [...layer.branches];
     if (layer.files !== undefined) out.files = [...layer.files];
     if (layer.verifications !== undefined) out.verifications = [...layer.verifications];
+    if (layer.hardSteps !== undefined) out.hardSteps = layer.hardSteps.map((s) => ({ ...s }));
   }
   return out;
 }
@@ -319,6 +358,7 @@ export function extractPrLayers(body: Record<string, unknown>): {
     if (Array.isArray(o.branches)) out.branches = asStringArray(o.branches);
     if (Array.isArray(o.files)) out.files = asStringArray(o.files);
     if (Array.isArray(o.verifications)) out.verifications = asStringArray(o.verifications);
+    if (Array.isArray(o.hardSteps)) out.hardSteps = o.hardSteps.map(asRecord).map((s) => ({ title: String(s.title ?? '硬断言步骤') }));
     return out;
   };
   return { testPlan: pick(body.test_plan), override: pick(body.override) };

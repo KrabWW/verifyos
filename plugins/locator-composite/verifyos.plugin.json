@@ -1,0 +1,11 @@
+{
+  "name": "locator-composite",
+  "title": "复合动作序列采集（LocatorCache 增强）",
+  "version": "0.1.0",
+  "description": "从 run.event 采集 ≥2 个子动作的复合步骤序列（如 antd Select 两段式）落 JSONL 并暴露查询，为「复合动作固化回放」提供素材库。单动作缓存已由核心 locator_cache 覆盖；固化回放接线是核心后续方向",
+  "permission": "auto",
+  "routes": [
+    { "method": "GET", "path": "/sequences?q=&ver=&run=&limit=", "description": "查询采集到的复合序列（q 全文、ver 按验证 short_id、run 按 run short_id）" },
+    { "method": "GET", "path": "/stats", "description": "按 run 汇总统计" }
+  ]
+}

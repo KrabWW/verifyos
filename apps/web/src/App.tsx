@@ -39,6 +39,8 @@ interface StepDefView {
   title: string;
   kind: string;
   targetRef?: string;
+  /** 配方化步骤：确定性 goto 导航目标（登录后的 st_nav / st_l1 等） */
+  goto?: string;
   /** 编辑器：ai 指令 / 断言值 */
   instruction?: string;
   assertValue?: string;
@@ -64,16 +66,20 @@ interface VerItem {
   id: string;
   short_id?: string;
   title?: string;
+  /** 凭据角色绑定：POST /api/runs 带上后 injectCredential 按角色+项目查凭据 */
+  actor?: string;
   steps?: Array<{
     id: string; title?: string; kind: string;
     instruction?: string; targetRef?: string;
-    assert?: { value?: string };
+    /** 配方化步骤：确定性 goto 导航目标 */
+    goto?: string;
+    assert?: { kind?: string; value?: string };
     actions?: Array<{ type: string; selector?: string; value?: string; url?: string }>;
   }>;
 }
 
-/** H09：项目条目（GET /api/projects） */
-interface ProjectItem { id: string; name: string }
+/** H09：项目条目（GET /api/projects）——id=short_id 唯一标识（T9）；numId=后端数字 id（凭据/环境等 FK 用） */
+interface ProjectItem { id: string; name: string; numId?: string }
 
 const NAV: Array<{ icon: typeof Sparkle; label: string; route: Route; badge?: string }> = [
   { icon: FlaskConical, label: '概览', route: 'dashboard' },
@@ -144,10 +150,10 @@ function evidenceIcon(kind?: string): React.ReactNode {
   return <Paperclip size={size} />;
 }
 
-function lineBody(e: RunEvent): { icon: React.ReactNode; text: string; cls: string; icoCls?: string; ts?: string } {
+function lineBody(e: RunEvent): { icon: React.ReactNode; text: string; cls: string; icoCls?: string; ts?: string; href?: string } {
   const t = e as unknown as {
     type: string; ts?: string; text?: string; tool?: string; action?: string; args?: Record<string, unknown>;
-    ok?: boolean; detail?: string; kind?: string; uri?: string;
+    ok?: boolean; detail?: string; kind?: string; uri?: string; runId?: string;
   };
   const ts = t.ts ? new Date(t.ts).toTimeString().slice(0, 8) : undefined;
   if (t.type === 'step.thinking') return { icon: <Brain size={10} />, text: t.text ?? '', cls: 'think', icoCls: 'a-think', ts };
@@ -164,7 +170,11 @@ function lineBody(e: RunEvent): { icon: React.ReactNode; text: string; cls: stri
   if (t.type === 'step.observation') {
     return { icon: t.ok ? <CircleCheck size={10} /> : <CircleX size={10} />, text: t.detail ?? '', cls: t.ok ? 'obs-ok' : 'obs-fail', icoCls: t.ok ? 'a-ok' : 'a-fail', ts };
   }
-  if (t.type === 'step.evidence') return { icon: evidenceIcon(t.kind), text: `${t.kind} · ${(t.uri ?? '').split('/').pop()}`, cls: 'ev', icoCls: 'a-ev', ts };
+  if (t.type === 'step.evidence') {
+    // 证据行可点：截图/录屏/trace 直接打开（?key= 形式，通配路由 Nest11/Express5 不兼容）
+    const href = t.uri ? `/api/runs/${t.runId ?? ''}/evidence?key=${encodeURIComponent(t.uri)}` : undefined;
+    return { icon: evidenceIcon(t.kind), text: `${t.kind} · ${(t.uri ?? '').split('/').pop()}`, cls: 'ev', icoCls: 'a-ev', ts, href };
+  }
   return { icon: <CornerDownRight size={10} />, text: t.type, cls: '', icoCls: 'a-generic', ts };
 }
 
@@ -210,9 +220,17 @@ export function App() {
     ping();
     // H09：15s 轮询健康状态（unreachable 可自愈），卸载清理
     const healthTimer = setInterval(ping, 15000);
-    fetch('/api/runs/steps').then((r) => r.json()).then((d) => setSteps(d.steps ?? [])).catch(() => setSteps([]));
-    // H09：验证库列表（页头真 short_id + 步骤定义选择下拉）
-    fetch('/api/verifications').then((r) => r.json()).then((d) => setVers(d.items ?? [])).catch(() => setVers([]));
+    // 步骤定义初载（F6 合并双 fetch）：优先载入最新验证（配方化生成结果），空库才回退 GET /api/runs/steps 的 demo 步骤
+    // F4（审查）：载入 rows[0] 时同步 setVerSel——否则下拉显示未选中，后续「保存为验证」会新建空白验证而非更新 rows[0]
+    fetch('/api/verifications').then((r) => r.json()).then((d) => {
+      const rows: VerItem[] = d.items ?? [];
+      setVers(rows);
+      if (rows.length > 0 && (rows[0].steps ?? []).length > 0) {
+        setVerSel(String(rows[0].id));
+        setSteps(rows[0].steps!.map(toViewStep));
+      }
+      else fetch('/api/runs/steps').then((r) => r.json()).then((dd) => setSteps(dd.steps ?? [])).catch(() => setSteps([]));
+    }).catch(() => setSteps([]));
     // U29：插件 UI 扩展——enabled 且 manifest.ui.menu 的插件 → 侧栏菜单 + 页面注册
     fetch('/api/plugins').then((r) => r.json()).then((d) => {
       const items = (d.plugins ?? d.items ?? []) as Array<Record<string, unknown>>;
@@ -238,7 +256,7 @@ export function App() {
     // T9: 后端返回 {ok, projects:[{id, short_id, name}]}——用 short_id 作唯一标识
     fetch('/api/projects')
       .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
-      .then((d) => setProjects((Array.isArray(d) ? d : d.projects ?? d.items ?? []).map((p: Record<string, unknown>) => ({ id: String(p.short_id ?? p.id), name: String(p.name ?? p.title ?? p.id ?? '') }))))
+      .then((d) => setProjects((Array.isArray(d) ? d : d.projects ?? d.items ?? []).map((p: Record<string, unknown>) => ({ id: String(p.short_id ?? p.id), name: String(p.name ?? p.title ?? p.id ?? ''), ...(p.id != null && p.id !== p.short_id ? { numId: String(p.id) } : {}) }))))
       .catch(() => setProjects([]));
 
     const socket = io({ path: '/ws' });
@@ -275,7 +293,10 @@ export function App() {
       setVers(rows);
       const target = rows.find((v) => v.short_id === runFocusVer);
       if (target) {
-        applyVerification(String(target.id));
+        // 修复（写死步骤投诉根因）：此前经 applyVerification(id) 走 vers 旧闭包——
+        // 刚生成的验证不在其中 → if(!v) 静默返回 → 左列停留 demo 步骤。改用本次新鲜 rows。
+        setVerSel(String(target.id));
+        setSteps((target.steps ?? []).map(toViewStep));
       }
       setRunFocusVer(null);
     }).catch(() => setRunFocusVer(null));
@@ -290,16 +311,26 @@ export function App() {
     setEvents([]);
     setDone(null);
     setReplayRunId(null);
+    // 凭据联动（审查缺口修复）：执行页也要带 actor/verificationShortId/startUrl——
+    // 后端 injectCredential 按角色+项目解析 credential 表（如 cred_d7yq76 xiejiawei），否则兜底 admin/test123
+    const selVer = vers.find((v) => String(v.id) === verSel);
+    const firstGoto = steps.map((s) => s.goto).find(Boolean);
     fetch('/api/runs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ steps }),
+      body: JSON.stringify({
+        steps: toPayload(),
+        ...(selVer?.short_id ? { verificationShortId: selVer.short_id } : {}),
+        ...(selVer?.actor ? { actor: selVer.actor } : {}),
+        ...(firstGoto ? { startUrl: firstGoto } : {}),
+      }),
     }).catch(() => setRunning(false));
   };
 
   // U25：执行页内编辑——与编辑器共用 StepEditor 与 dry-run 后端，单一事实来源
   const toPayload = () => steps.map((s) => ({
     id: s.id, title: s.title, kind: s.kind,
+    ...(s.goto ? { goto: s.goto } : {}),
     ...(s.actions?.length ? { actions: s.actions } : {}),
     ...(s.instruction ? { instruction: s.instruction } : {}),
     // U27 修复：StepEditor 写入的是 assert 对象——只看旧字段 assertValue 会丢断言
@@ -350,9 +381,12 @@ export function App() {
   const dryRun = (upto?: number) => {
     if (dryBusy !== null || steps.length === 0) return;
     setDryBusy(upto ?? 'all');
+    // 凭据联动：与 triggerRun 同形状，占位符按选中验证的 actor 渲染
+    const selVer = vers.find((v) => String(v.id) === verSel);
+    const firstGoto = steps.map((s) => s.goto).find(Boolean);
     fetch('/api/runs/dry-run', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ steps: toPayload(), ...(upto !== undefined ? { upto } : {}) }),
+      body: JSON.stringify({ steps: toPayload(), ...(upto !== undefined ? { upto } : {}), ...(selVer?.actor ? { actor: selVer.actor } : {}), ...(firstGoto ? { startUrl: firstGoto } : {}) }),
     })
       .then((r) => r.json())
       .then((d) => { if (d.error) window.alert(`试运行失败：${d.error}`); else setDry(d); })
@@ -423,21 +457,25 @@ export function App() {
     localStorage.setItem('verifyos.project', id);
     setProjOpen(false);
   };
+  // 验证库 step → 执行页视图模型（单一映射，goto / 断言 kind 全保真）
+  const toViewStep = (s: NonNullable<VerItem['steps']>[number]): StepDefView => ({
+    id: s.id,
+    title: s.title ?? s.id,
+    kind: s.kind,
+    ...(s.goto ? { goto: s.goto } : {}),
+    ...(s.instruction ? { instruction: s.instruction } : {}),
+    ...(s.assert?.value ? { assertValue: s.assert.value } : {}),
+    ...(s.assert?.kind ? { assert: { kind: s.assert.kind as StepDefView['assert'] extends { kind: infer K } ? K : never, value: s.assert.value ?? '' } } : {}),
+    ...(s.targetRef ? { targetRef: s.targetRef } : {}),
+    ...(s.actions ? { actions: s.actions } : {}),
+    editing: false,
+  });
   // H09：验证选择——用验证库 steps 覆盖本地步骤定义 state
   const applyVerification = (id: string) => {
     setVerSel(id);
     const v = vers.find((x) => x.id === id);
     if (!v) return;
-    setSteps((v.steps ?? []).map((s) => ({
-      id: s.id,
-      title: s.title ?? s.id,
-      kind: s.kind,
-      ...(s.instruction ? { instruction: s.instruction } : {}),
-      ...(s.assert?.value ? { assertValue: s.assert.value } : {}),
-      ...(s.targetRef ? { targetRef: s.targetRef } : {}),
-      ...(s.actions ? { actions: s.actions } : {}),
-      editing: false,
-    })));
+    setSteps((v.steps ?? []).map(toViewStep));
   };
 
   return (
@@ -556,13 +594,13 @@ export function App() {
         {route === 'dashboard' && <DashboardView onOpenRun={(runId) => { if (runId) setReplayRunId(runId); setRoute('run'); }} onGo={(r) => setRoute(r)} />}
         {route === 'history' && <HistoryView onReplay={(id) => { setReplayRunId(id); setRoute('run'); }} onNew={() => setRoute('editor')} />}
         {route === 'pr' && <PrView />}
-        {route === 'explore' && <ExploreView seedUrl={exploreSeed} key={exploreSeed} onGoMap={() => setRoute('map')} onGoQa={() => setRoute('qa')} />}
+        {route === 'explore' && <ExploreView seedUrl={exploreSeed} key={exploreSeed} projectShortId={curProject?.id ?? ''} onGoMap={() => setRoute('map')} onGoQa={() => setRoute('qa')} />}
         {route === 'import' && <ImportView onGoQa={() => setRoute('qa')} onGoChat={() => setRoute('chat')} />}
         {route === 'welcome' && <WelcomeView onGoExplore={(u) => { setExploreSeed(u); setRoute('explore'); }} onGo={(r) => setRoute(r)} />}
         {route === 'settings' && <ProjectSettingsView shortId={curProject?.id ?? ''} name={curProject?.name ?? '订单管理系统'} />}
         {route === 'qa' && <QaView onGo={(r) => setRoute(r)} onGoEditor={() => setRoute('run')} onGoQaEditor={(verShortId) => { setRunFocusVer(verShortId); setRoute('run'); }} focusQaId={qaFocus} onFocusConsumed={() => setQaFocus(null)} />}
         {route === 'map' && <MapView onGoQa={() => setRoute('qa')} />}
-        {route === 'cred' && <CredView />}
+        {route === 'cred' && <CredView projects={projects} defaultProjectId={curProject?.numId ?? curProject?.id ?? ''} />}
         {route === 'chat' && <ChatView />}
         {route === 'issues' && <IssuesView onGo={(r) => setRoute(r)} onOpenRun={(runId) => { setReplayRunId(runId); setRoute('run'); }} />}
         {route === 'plugins' && <PluginsView />}
@@ -690,12 +728,19 @@ export function App() {
                     </div>
                     {c.lines.map((l, i) => {
                       const b = lineBody(l);
-                      return (
-                        <div key={i} className={`logline ${b.cls}`}>
+                      const inner = (
+                        <>
                           <span className={`lico ${b.icoCls ?? ''}`}>{b.icon}</span>
                           <span className="ltext" title={b.text}>{b.text}</span>
                           {b.ts && <span className="lts">{b.ts}</span>}
-                        </div>
+                        </>
+                      );
+                      // 证据行可点（新标签打开原图/录屏）；普通行保持 div
+                      return b.href ? (
+                        <a key={i} className={`logline ${b.cls}`} href={b.href} target="_blank" rel="noreferrer"
+                           title="打开证据（图片/录屏/trace）" style={{ textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}>{inner}</a>
+                      ) : (
+                        <div key={i} className={`logline ${b.cls}`}>{inner}</div>
                       );
                     })}
                   </div>
@@ -778,11 +823,15 @@ function RunDetail({ done, events, onVer, onEditVer }: { done: DoneSummary | nul
   const llmActions = (events.filter((e) => e.type === 'step.action') as unknown as Array<{ tool?: string; action?: string; args?: { llmCalls?: number } }>)
     .filter((a) => (a.args?.llmCalls ?? 0) > 0);
   const evItems = events.filter((e) => e.type === 'step.evidence') as unknown as Array<{ kind?: string; uri?: string; runId?: string }>;
-  const shotItems = evItems.filter((s) => s.kind === 'screenshot' && s.uri);
+  let shotItems = evItems.filter((s) => s.kind === 'screenshot' && s.uri);
   let videoItems = evItems.filter((s) => s.kind === 'video' && s.uri);
   // 兜底：事件流缺 video evidence（旧 Run / runner 未发事件）时，从 detail.evidenceKeys 过滤 .webm
   if (videoItems.length === 0 && (detail?.evidenceKeys ?? []).some((k) => k.endsWith('.webm'))) {
     videoItems = (detail!.evidenceKeys ?? []).filter((k) => k.endsWith('.webm')).map((k) => ({ kind: 'video', uri: k, runId: done.runId }));
+  }
+  // 兜底：刷新/回放等场景事件流缺 screenshot evidence 时，从 detail.evidenceKeys 过滤 .png（与 video 兜底同型）
+  if (shotItems.length === 0 && (detail?.evidenceKeys ?? []).some((k) => k.endsWith('.png'))) {
+    shotItems = (detail!.evidenceKeys ?? []).filter((k) => k.endsWith('.png')).map((k) => ({ kind: 'screenshot', uri: k, runId: done.runId }));
   }
   const evUrl = (rid: string, uri: string) => `/api/runs/${rid}/evidence?key=${encodeURIComponent(uri)}`;
 
@@ -815,7 +864,7 @@ function RunDetail({ done, events, onVer, onEditVer }: { done: DoneSummary | nul
         );
       }))}
       {tab === 'video' && (videoItems.length === 0 ? (
-        <p className="dim runlog-empty">该 Run 未录制视频（引擎 video 管道属后续）</p>
+        <p className="dim runlog-empty">该 Run 无录屏证据（引擎全程 webm 录屏，随运行归档于证据列表）</p>
       ) : videoItems.map((v, i) => (
         <video key={i} className="runlog-video" controls src={evUrl(v.runId ?? done.runId, v.uri!)} />
       )))}
@@ -833,7 +882,7 @@ function RunDetail({ done, events, onVer, onEditVer }: { done: DoneSummary | nul
       <h4>证据（{detail?.evidenceKeys?.length ?? 0}）</h4>
       <div className="evlist">
         {(detail?.evidenceKeys ?? []).map((k) => (
-          <a key={k} className="evlink mono" href={`/api/runs/${done.runId}/evidence/${k}`} target="_blank" rel="noreferrer">
+          <a key={k} className="evlink mono" href={evUrl(done.runId, k)} target="_blank" rel="noreferrer">
             {k.split('/').pop()}
           </a>
         ))}

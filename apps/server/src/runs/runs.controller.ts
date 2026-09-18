@@ -16,16 +16,87 @@ export class RunsController {
     return { steps: DEMO_STEPS };
   }
 
-  @Post()
-  async trigger(@Body() body: { startUrl?: string; steps?: StepDef[]; device?: string; verificationShortId?: string }) {
-    return this.runs.trigger({ startUrl: body?.startUrl, steps: body?.steps, device: body?.device, verificationShortId: body?.verificationShortId });
+  /** 执行历史分页列表：GET /api/runs?page=1&pageSize=20&verdict=all&q=
+   *  返回 {found,total,page,pageSize,counts:{all,pass,unknown,fail},rows}；rows 形状与 /api/overview.recent 一致（执行历史屏分页用） */
+  @Get()
+  async list(
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('verdict') verdict?: string,
+    @Query('q') q?: string,
+  ) {
+    await this.exploreSvc.ensureReady();
+    const p = Math.max(1, Math.floor(Number(page) || 1));
+    const ps = Math.min(100, Math.max(5, Math.floor(Number(pageSize) || 20)));
+    const where: string[] = [];
+    const params: unknown[] = [];
+    if (verdict && verdict !== 'all') {
+      params.push(verdict);
+      where.push(`r.verdict = $${params.length}`);
+    }
+    const kw = (q ?? '').trim().toLowerCase();
+    if (kw) {
+      params.push(`%${kw}%`);
+      const i = params.length;
+      where.push(
+        `(LOWER(r.short_id) LIKE $${i} OR LOWER(COALESCE(v.short_id, '')) LIKE $${i} OR LOWER(COALESCE(v.title, '')) LIKE $${i})`,
+      );
+    }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const totalR = await this.exploreSvc.pg.query(
+      `SELECT count(*)::int AS n FROM run r LEFT JOIN verification v ON v.id = r.verification_id ${whereSql}`,
+      params,
+    );
+    const countsR = await this.exploreSvc.pg.query(
+      `SELECT r.verdict, count(*)::int AS n FROM run r LEFT JOIN verification v ON v.id = r.verification_id ${whereSql} GROUP BY r.verdict`,
+      params,
+    );
+    const rowsR = await this.exploreSvc.pg.query(
+      `SELECT r.short_id, r.verdict, r.duration_ms, (r.output->>'llmCalls')::int AS llm_calls, r.created_at, r.output, r.trigger,
+              v.short_id AS ver_short_id, v.title AS ver_title
+       FROM run r LEFT JOIN verification v ON v.id = r.verification_id
+       ${whereSql}
+       ORDER BY r.id DESC LIMIT ${ps} OFFSET ${(p - 1) * ps}`,
+      params,
+    );
+    const counts = { all: 0, pass: 0, unknown: 0, fail: 0 };
+    for (const row of countsR.rows as Array<{ verdict: string | null; n: number }>) {
+      counts.all += row.n;
+      if (row.verdict === 'pass') counts.pass = row.n;
+      else if (row.verdict === 'unknown') counts.unknown = row.n;
+      else if (row.verdict === 'fail') counts.fail = row.n;
+    }
+    return {
+      found: true,
+      total: (totalR.rows[0] as { n: number } | undefined)?.n ?? 0,
+      page: p,
+      pageSize: ps,
+      counts,
+      rows: (rowsR.rows as Array<Record<string, unknown>>).map((r) => ({
+        runId: r.short_id,
+        verdict: r.verdict,
+        durationMs: Number(r.duration_ms ?? 0),
+        llmCalls: r.llm_calls ?? 0,
+        createdAt: r.created_at,
+        device: (r.output as Record<string, unknown> | null)?.device ?? null,
+        trigger: (r.trigger as string) ?? 'manual',
+        verShortId: (r.ver_short_id as string) ?? null,
+        verTitle: (r.ver_title as string) ?? null,
+      })),
+    };
   }
 
-  /** 编辑器试运行：同步跑到 upto 步（含）返回截图/步骤结果/ai 定位候选（不落 run 表、不广播） */
+  @Post()
+  async trigger(@Body() body: { startUrl?: string; steps?: StepDef[]; device?: string; verificationShortId?: string; actor?: string }) {
+    return this.runs.trigger({ startUrl: body?.startUrl, steps: body?.steps, device: body?.device, verificationShortId: body?.verificationShortId, actor: body?.actor });
+  }
+
+  /** 编辑器试运行：同步跑到 upto 步（含）返回截图/步骤结果/ai 定位候选（不落 run 表、不广播）。
+   *  actor 透传（安全审查项）：占位符步骤在 RunsService.dryRun 内按角色+项目渲染，密码不回传。 */
   @Post('dry-run')
-  async dryRun(@Body() body: { steps?: StepDef[]; startUrl?: string; upto?: number }) {
+  async dryRun(@Body() body: { steps?: StepDef[]; startUrl?: string; upto?: number; actor?: string }) {
     try {
-      return await this.runs.dryRun({ steps: body?.steps ?? [], startUrl: body?.startUrl, upto: body?.upto });
+      return await this.runs.dryRun({ steps: body?.steps ?? [], startUrl: body?.startUrl, upto: body?.upto, actor: body?.actor });
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err) };
     }
@@ -34,12 +105,13 @@ export class RunsController {
   /** 历史 Run 事件流回放（从 PG output->events 读） */
   @Get(':id/events')
   async events(@Param('id') id: string) {
-    const o = this.runs.get(id);
+    const rid = id.startsWith('run_') || id.startsWith('dry_') ? id : `run_${id}`;
+    const o = this.runs.get(id) ?? this.runs.get(rid);
     if (o) return { found: true, events: o.events, source: 'memory' };
-    // 内存没有 → 从 PG 读（重启后的历史 Run）
+    // 内存没有 → 从 PG 读（重启后的历史 Run）；短 id（缺 run_ 前缀）同样容错
     try {
       await this.exploreSvc.ensureReady(); // 懒初始化连接池（否则 pool 未初始化会抛错）
-      const r = await this.exploreSvc.pg.query(`SELECT output FROM run WHERE short_id = $1 LIMIT 1`, [id]);
+      const r = await this.exploreSvc.pg.query(`SELECT output FROM run WHERE short_id IN ($1, $2) LIMIT 1`, [id, rid]);
       if (r.rows.length === 0) return { found: false };
       const events = ((r.rows[0].output as Record<string, unknown>)?.events ?? []) as unknown[];
       return { found: true, events, source: 'pg' };
@@ -51,11 +123,12 @@ export class RunsController {
   /** Run 结果（含 C3 触达校验明细）；内存 miss 后 PG 回退（重启后的历史 Run，对照 events 端点模式） */
   @Get(':id')
   async get(@Param('id') id: string) {
-    const o = this.runs.get(id);
+    const rid = id.startsWith('run_') || id.startsWith('dry_') ? id : `run_${id}`;
+    const o = this.runs.get(id) ?? this.runs.get(rid);
     if (o) {
       return {
         found: true,
-        verShortId: this.runs.getRunVer(id) ?? null,
+        verShortId: (this.runs.getRunVer(id) ?? this.runs.getRunVer(rid)) ?? null,
         verdict: o.verdict,
         llmCalls: o.llmCalls,
         cache: o.cache,
@@ -71,7 +144,7 @@ export class RunsController {
     // PG 回退：形状与内存版一致（steps 从 events 的 step.completed 重建）
     try {
       await this.exploreSvc.ensureReady(); // 懒初始化连接池（否则 pool 未初始化会抛错）
-      const r = await this.exploreSvc.pg.query(`SELECT verdict, duration_ms, failure_summary, output FROM run WHERE short_id = $1 LIMIT 1`, [id]);
+      const r = await this.exploreSvc.pg.query(`SELECT verdict, duration_ms, failure_summary, output FROM run WHERE short_id IN ($1, $2) LIMIT 1`, [id, rid]);
       if (r.rows.length === 0) return { found: false };
       const row = r.rows[0] as { verdict: string; duration_ms: number | null; failure_summary: string | null; output: Record<string, unknown> };
       const output = row.output ?? {};
@@ -84,8 +157,8 @@ export class RunsController {
       let verShortId: string | null = null;
       try {
         const vr = await this.exploreSvc.pg.query(
-          `SELECT v.short_id AS ver FROM run r JOIN verification v ON r.verification_id = v.id WHERE r.short_id = $1 LIMIT 1`,
-          [id],
+          `SELECT v.short_id AS ver FROM run r JOIN verification v ON r.verification_id = v.id WHERE r.short_id IN ($1, $2) LIMIT 1`,
+          [id, rid],
         );
         verShortId = (vr.rows[0]?.ver as string) ?? null;
       } catch { /* 关联缺失不阻塞详情 */ }
@@ -113,24 +186,25 @@ export class RunsController {
   @Get(':id/evidence')
   async evidence(@Param('id') id: string, @Query('key') key: string, @Res() res: Response) {
     if (!key) {
-      const keys = this.runs.evidenceList(id);
+      const rid = id.startsWith('run_') || id.startsWith('dry_') ? id : `run_${id}`;
+      const keys = this.runs.evidenceList(id) ?? this.runs.evidenceList(rid);
       if (keys === null) {
         // 磁盘无该 run 目录 → 区分「run 不存在」（内存/PG 都查无）与「run 存在但无证据」
-        const existsMem = this.runs.get(id) !== undefined;
+        const existsMem = this.runs.get(id) !== undefined || this.runs.get(rid) !== undefined;
         let existsPg = false;
         if (!existsMem) {
           try {
             await this.exploreSvc.ensureReady();
-            const r = await this.exploreSvc.pg.query(`SELECT 1 FROM run WHERE short_id = $1 LIMIT 1`, [id]);
+            const r = await this.exploreSvc.pg.query(`SELECT 1 FROM run WHERE short_id IN ($1, $2) LIMIT 1`, [id, rid]);
             existsPg = r.rows.length > 0;
           } catch {
             existsPg = false;
           }
         }
         if (!existsMem && !existsPg) return res.status(404).json({ error: 'run not found' });
-        return res.json({ found: true, runId: id, keys: [] });
+        return res.json({ found: true, runId: rid, keys: [] });
       }
-      return res.json({ found: true, runId: id, keys });
+      return res.json({ found: true, runId: rid, keys });
     }
     const file = this.runs.evidencePath(key);
     if (!file) return res.status(404).json({ error: 'not found' });
@@ -140,7 +214,8 @@ export class RunsController {
   /** Run 报告导出（Markdown）：内存命中全量明细；PG 回退从 events 重建步骤表 */
   @Get(':id/report')
   async report(@Param('id') id: string, @Res() res: Response) {
-    const mem = this.runs.get(id);
+    const rid = id.startsWith('run_') || id.startsWith('dry_') ? id : `run_${id}`;
+    const mem = this.runs.get(id) ?? this.runs.get(rid);
     type StepRow = { id: string; verdict: string; llmCalls: number; cacheHit: boolean; durationMs: number };
     let verdict = 'unknown';
     let durationMs = 0;
@@ -168,7 +243,7 @@ export class RunsController {
       // PG 回退：output jsonb + 从 events 的 step.completed 重建步骤表
       try {
         await this.exploreSvc.ensureReady(); // 懒初始化连接池（否则 pool 未初始化会抛错）
-        const r = await this.exploreSvc.pg.query(`SELECT verdict, duration_ms, failure_summary, output FROM run WHERE short_id = $1 LIMIT 1`, [id]);
+        const r = await this.exploreSvc.pg.query(`SELECT verdict, duration_ms, failure_summary, output FROM run WHERE short_id IN ($1, $2) LIMIT 1`, [id, rid]);
         if (r.rows.length === 0) return res.status(404).json({ error: 'run not found' });
         const row = r.rows[0] as { verdict: string; duration_ms: number | null; failure_summary: string | null; output: Record<string, unknown> };
         const output = row.output ?? {};

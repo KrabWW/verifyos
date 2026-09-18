@@ -18,6 +18,7 @@ import { VerificationsController } from './explore/verifications.controller';
 import { BrowserStatesController } from './explore/browser-states.controller';
 import { ImportsController } from './explore/imports.controller';
 import { CredentialsController } from './explore/credentials.controller';
+import { LoginRecipesService } from './explore/login-recipes.service';
 import { ChatController } from './chat/chat.controller';
 import { IssuesController } from './issues.controller';
 import { MrsController } from './mrs.controller';
@@ -54,7 +55,18 @@ import { GithubClient } from './connectors/github.client';
         return new CredentialCrypto(key);
       },
     },
-    { provide: Pool, useFactory: () => new Pool({ connectionString: process.env.DATABASE_URL }) },
+    {
+      provide: Pool,
+      useFactory: () => {
+        const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+        // WSL PG 空闲关停会触发 57P01 'terminating connection due to administrator command'：
+        // 未处理的池 'error' 事件会让整个 Node 进程退出——吞掉并记录，由调用方重试。
+        pool.on('error', (err) => {
+          console.error('[pg] pool idle client error (ignored):', err.message);
+        });
+        return pool;
+      },
+    },
     // F15：ToolRegistry 单例（E1 引擎接入运行时——权限门控 + 审计落库）
     {
       provide: ToolRegistry,
@@ -62,6 +74,7 @@ import { GithubClient } from './connectors/github.client';
       useFactory: createToolRegistry,
     },
     ExploreService,
+    LoginRecipesService,
     PluginsService,
     PluginRuntime,
   ],

@@ -56,17 +56,34 @@ function PluginLibrary() {
   }).catch(() => undefined);
   useEffect(() => { load(); loadRuntime(); }, []);
 
-  // M5：导入（他人分享的 JSON）与探活（基座连通调用）
+  // M5：导入（他人分享的 zip 安装包即装即用 / JSON 元数据）与探活（基座连通调用）
   const importRef = useRef<HTMLInputElement>(null);
   const importPlugin = async (file: File | null) => {
     if (!file) return;
     try {
+      if (file.name.toLowerCase().endsWith('.zip')) {
+        // zip 安装包：解包校验 + 落盘 + 即时激活（无需重启），同名热替换
+        const dataUrl = await new Promise<string>((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = () => res(String(fr.result));
+          fr.onerror = () => rej(fr.error ?? new Error('读取失败'));
+          fr.readAsDataURL(file);
+        });
+        const r = await fetch('/api/plugins/install', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: file.name, dataBase64: dataUrl.slice(dataUrl.indexOf(',') + 1) }) });
+        const d = await r.json();
+        if (d.ok) {
+          const routes = (d.routes ?? []) as string[];
+          setMsg(`✓ 已安装插件 ${d.name} v${d.version}${d.replaced ? '（热替换旧版）' : ''}——${routes.length ? routes.join('、') + ' 即装即生效' : '已激活'}${d.registryShortId ? ` · 注册表 ${d.registryShortId}` : ''}`);
+          load();
+        } else setMsg(`安装失败：${d.message ?? d.error ?? '未知'}`);
+        return;
+      }
       const pkg = JSON.parse(await file.text());
       const r = await fetch('/api/plugins/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(pkg) });
       const d = await r.json();
       if (d.ok) { setMsg(`✓ 已导入插件 ${d.shortId}（${d.name}）——draft 态，启用后生效`); load(); }
       else setMsg(`导入失败：${d.message ?? '未知'}`);
-    } catch { setMsg('导入失败：文件不是合法的插件 JSON'); }
+    } catch { setMsg('导入失败：文件不是合法的插件 zip/JSON'); }
   };
   const probePlugin = async (p: PluginRow) => {
     setBusy(`${p.short_id}:probe`);
@@ -160,8 +177,8 @@ function PluginLibrary() {
         <span className="chip p-purple">custom {plugins.filter((p) => p.kind === 'custom').length}</span>
         <span className="sp" />
         <button className="btn primary" onClick={() => setWizard(true)}><Plus size={13} /> 创建插件</button>
-        <button className="btn" onClick={() => importRef.current?.click()} title="导入他人分享的插件 JSON 文件（共创）"><Plus size={13} /> 导入插件</button>
-        <input ref={importRef} type="file" accept=".json" style={{ display: 'none' }} onChange={(e) => { void importPlugin(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+        <button className="btn" onClick={() => importRef.current?.click()} title="导入他人分享的插件 zip 安装包（安装即生效）；也支持 JSON 元数据导入"><Plus size={13} /> 导入插件</button>
+        <input ref={importRef} type="file" accept=".zip,.json" style={{ display: 'none' }} onChange={(e) => { void importPlugin(e.target.files?.[0] ?? null); e.target.value = ''; }} />
         <button className="btn" onClick={load}>刷新</button>
       </div>
       {msg && <div className="hint" style={{ margin: '4px 0', padding: '5px 10px', background: '#fcfcfd', border: '1px solid var(--border)', borderRadius: 6, wordBreak: 'break-all' }}>{msg}</div>}

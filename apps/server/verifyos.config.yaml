@@ -1,0 +1,24 @@
+# VerifyOS MR 审查配置（本机实例，服务于 Conduit 演示被测系统）
+# ② pr.hardSteps：真实 UI 确定性操作链 + 硬断言（追加在登录+AI 回归之后）
+# 注意：express-realworld 校验 description 必填（漏填 → POST /api/articles 422）
+pr:
+  gate: fail_block
+  hardSteps:
+    - title: 硬断言：真创建纯中文标题文章并断言 slug 非空格式
+      goto: "{{envUrl}}/editor"
+      actions:
+        - type: fill
+          selector: "input[placeholder='Article Title']"
+          value: "纯中文验证标题{{ts}}"
+        - type: fill
+          selector: "input[placeholder='What\'s this article about?']"
+          value: "VerifyOS 自动回归"
+        - type: fill
+          selector: "textarea[placeholder='Write your article (in markdown)']"
+          value: "VerifyOS 自动回归：纯中文标题必须生成非空 slug（MR !1 修复验证）。"
+        - type: click
+          selector: "button.btn-primary"
+      assert:
+        kind: url_matches
+        value: "/article/.+-[0-9]+$"
+      targetRef: "/article/"

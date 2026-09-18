@@ -4,6 +4,7 @@ import {
 import { CredentialCrypto } from '@verifyos/agent-core';
 import { ExploreService } from './explore.service';
 import { RunsService } from '../runs/runs.service';
+import { LoginRecipesService, DEMO_LOGIN_STEPS } from './login-recipes.service';
 
 @Controller('api')
 export class BrowserStatesController {
@@ -11,6 +12,7 @@ export class BrowserStatesController {
     private readonly exploreSvc: ExploreService,
     private readonly crypto: CredentialCrypto,
     private readonly runs: RunsService,
+    private readonly loginRecipes: LoginRecipesService,
   ) {}
 
   // ---------- F12: Browser State 卡组 + 凭据测试连接 ----------
@@ -74,15 +76,27 @@ export class BrowserStatesController {
       [id],
     );
     if (cur.rows.length === 0) throw new HttpException({ ok: false, reason: 'browser state 不存在' }, HttpStatus.NOT_FOUND);
-    const steps = [
-      { id: 'st_01', title: '管理员登录', kind: 'module', actions: [
-        { type: 'fill', selector: '#username', value: 'admin' },
-        { type: 'fill', selector: '#password', value: 'test123' },
-        { type: 'click', selector: 'button[type="submit"]' },
-      ] },
-      { id: 'st_02', title: '会话有效断言', kind: 'assertion', assert: { kind: 'url_contains', value: 'list.html' }, targetRef: 'list.html' },
-    ];
-    const trigger = (await this.runs.trigger({ steps: steps as never })) as { runId?: string };
+    // 登录步骤数据驱动（安全审查项 a）：按 browser_state 实际归属解析项目——
+    // browser_state → environment → application → project_id，不再硬编码项目 1
+    let projectId = 1;
+    try {
+      const pj = await this.exploreSvc.pg.query(
+        `SELECT a.project_id FROM browser_state bs
+         JOIN environment e ON e.id = bs.environment_id
+         JOIN application a ON a.id = e.application_id
+         WHERE bs.short_id = $1 LIMIT 1`,
+        [id],
+      );
+      if (pj.rows.length > 0) projectId = Number(pj.rows[0].project_id);
+    } catch { /* 解析失败回退项目 1（demo） */ }
+    const recipe = await this.loginRecipes.resolveByProject(projectId);
+    const login = await this.loginRecipes.render(recipe, '管理员');
+    const steps = login.steps;
+    const trigger = (await this.runs.trigger({
+      steps: steps as never,
+      actor: '管理员',
+      ...(login.startUrl ? { startUrl: login.startUrl } : {}),
+    })) as { runId?: string };
     // 判定异步产出——先乐观续 TTL 并留痕，Run 失败由执行页暴露（诚实：此处返回 runId 供用户核对）
     await this.exploreSvc.pg.query(
       `UPDATE browser_state SET captured_at = now(), expires_at = now() + interval '6 hours' WHERE short_id = $1`,
@@ -101,19 +115,33 @@ export class BrowserStatesController {
     await this.exploreSvc.ensureReady();
     const credId = Number(id);
     if (!Number.isFinite(credId)) throw new BadRequestException('invalid id');
-    const cur = await this.exploreSvc.pg.query(`SELECT payload_enc FROM credential WHERE id = $1 LIMIT 1`, [credId]);
+    const cur = await this.exploreSvc.pg.query(`SELECT payload_enc, project_id FROM credential WHERE id = $1 LIMIT 1`, [credId]);
     // 业务失败 → 404（body 保持 {ok:false,reason} 兼容前端特判）
     if (cur.rows.length === 0) throw new HttpException({ ok: false, reason: '凭据不存在' }, HttpStatus.NOT_FOUND);
     const vals = JSON.parse(this.crypto.decrypt(cur.rows[0].payload_enc as string)) as { username: string; password: string };
-    const steps = [
-      { id: 'st_01', title: '登录探测', kind: 'module', actions: [
-        { type: 'fill', selector: '#username', value: vals.username },
-        { type: 'fill', selector: '#password', value: vals.password },
-        { type: 'click', selector: 'button[type="submit"]' },
-      ] },
-      { id: 'st_02', title: '登录成功断言', kind: 'assertion', assert: { kind: 'url_contains', value: 'list.html' }, targetRef: 'list.html' },
-    ];
-    const trigger = (await this.runs.trigger({ steps: steps as never })) as { runId?: string };
+    const projId = Number(cur.rows[0].project_id ?? 1);
+    // 登录步骤数据驱动（安全审查项 b）：直接用项目配方的占位符原始模板，把该凭据的真实值
+    // 一次性替换占位符后触发——去掉旧的 render-then-override 漏洞（render 注入的 A 账号密码
+    // 可能残留在非占位符位置，被本次 override 只换回占位符处，形成 A/B 凭据混用）。
+    // 值已非占位符，RunsService.injectCredential 不会二次改动。
+    const recipe = await this.loginRecipes.resolveByProject(projId);
+    const template = recipe?.steps ?? DEMO_LOGIN_STEPS;
+    const steps = template.map((s) => ({
+      ...s,
+      actions: s.actions?.map((a) => ({
+        ...a,
+        value: a.value === '{{username}}' ? vals.username
+          : a.value === '{{password}}' ? vals.password
+          : a.value,
+      })),
+      instruction: s.instruction
+        ?.replace(/\{\{username\}\}/g, vals.username)
+        .replace(/\{\{password\}\}/g, vals.password),
+    }));
+    const trigger = (await this.runs.trigger({
+      steps: steps as never,
+      ...(recipe?.startUrl ? { startUrl: recipe.startUrl } : {}),
+    })) as { runId?: string };
     await this.exploreSvc.pg.query(
       `INSERT INTO audit_log(actor, action, target, meta) VALUES ('system','credential.test',$1,$2::jsonb)`,
       [`credential:${id}`, JSON.stringify({ runId: trigger.runId ?? null })],

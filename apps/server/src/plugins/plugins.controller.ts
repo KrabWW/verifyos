@@ -1,6 +1,7 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, Patch, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { PluginsService, type PluginRow } from './plugins.service';
+import { installPluginFromZip, uninstallLocalPlugin } from './plugin-host';
 
 /**
  * L7：插件注册表端点。
@@ -107,14 +108,36 @@ export class PluginsController {
     }
   }
 
+  /** zip 安装包导入（共创闭环）：解包校验 → 落盘 plugins/<name>/ → 即时激活，同名热替换 */
+  @Post('install')
+  async installZip(@Body() body: { filename?: string; dataBase64?: string }) {
+    if (!body?.dataBase64) throw new BadRequestException('缺少 dataBase64（插件 zip 的 base64 内容）');
+    try {
+      return await installPluginFromZip(String(body.filename ?? 'plugin.zip'), body.dataBase64);
+    } catch (err) {
+      throw new BadRequestException(err instanceof Error ? err.message : String(err));
+    }
+  }
+
   @Delete(':shortId')
   async remove(@Param('shortId') shortId: string) {
+    // 本地插件（plg_local_*）：先卸运行时实例 + 删插件目录（uninstall 内部已删注册表行）；
+    // 未激活（仅剩注册表行/残留）则走原有注册表删除路径
+    let uninstalled = false;
+    if (shortId.startsWith('plg_local_')) {
+      try {
+        const r = await uninstallLocalPlugin(shortId.slice('plg_local_'.length));
+        if (r.ok) return { ok: true, uninstalled: true };
+      } catch {
+        /* 宿主未初始化等场景：仅删注册表行 */
+      }
+    }
     const res = await this.plugins.remove(shortId);
     if (!res.ok) {
       throw res.reason === 'not_found'
         ? new NotFoundException(`插件 ${shortId} 不存在`)
         : new BadRequestException(res.reason);
     }
-    return { ok: true };
+    return { ok: true, uninstalled };
   }
 }

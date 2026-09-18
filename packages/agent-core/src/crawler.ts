@@ -1,3 +1,4 @@
+import { extractReasoningMiddleware, defaultSettingsMiddleware, wrapLanguageModel } from 'ai';
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -124,7 +125,15 @@ export class Crawler {
         apiKey: llm.apiKey,
         baseURL: llm.baseURL,
       });
-      const llmClient = new AISdkClient({ model: provider(llm.model) } as never);
+      const llmClient = new AISdkClient({
+        model: wrapLanguageModel({
+          model: provider(llm.model),
+          middleware: [
+            extractReasoningMiddleware({ tagName: 'think' }),
+            defaultSettingsMiddleware({ settings: { maxTokens: 16384 } }),
+          ],
+        }),
+      } as never);
       sh = new Stagehand({
         env: 'LOCAL',
         llmClient,
@@ -151,6 +160,10 @@ export class Crawler {
     const norm = (u: string) => {
       const x = new URL(u);
       x.hash = '';
+      // SSO/CAS 登录页的 service/ticket 等易变参数会使同一登录页被重复爬取/记录——命中即去掉整个 query
+      if (x.searchParams.has('service') || x.searchParams.has('ticket') || x.searchParams.has('redirect_uri') || x.searchParams.has('ReturnUrl')) {
+        x.search = '';
+      }
       let s = x.toString();
       if (s.endsWith('/')) s = s.slice(0, -1);
       return s;
@@ -293,7 +306,9 @@ export class Crawler {
         visited.add(finalUrl);
 
         const info = await extract(finalUrl, depth);
-        pages.push(info);
+        if (!info.loginWall) {
+          pages.push(info); // 登录墙页只是墙，不计入业务页面产出
+        }
         cfg.onProgress?.({ kind: 'page', url: finalUrl, title: info.title, depth, interactive: info.interactive, loginWall: info.loginWall, links: info.links.length, status: httpStatus, loadMs, consoleErrors, ...(shotKey ? { shotKey } : {}) });
         if (info.loginWall) {
           loginWallDetected = true;
@@ -321,11 +336,24 @@ export class Crawler {
             await doLogin();
             cfg.onProgress?.({ kind: 'login', ok: authenticated, message: authenticated ? `登录成功（${credential.username}），继续爬取墙内页面` : '登录尝试未成功，继续爬公开页' });
             if (authenticated) {
+              loginAttempted = true; // 每轮探索只登一次，避免会话再过期时无限登录循环
+              // FIX: CAS/SSO 登录成功后浏览器未必自动回跳业务页——显式导航回本队列项原始 URL 再抽取
+              try {
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+                await page.waitForTimeout(1200);
+              } catch { /* 导航失败则退回当前页 */ }
               const afterUrl = norm(page.url());
+              // 登录页本身不计入探索产出（它只是墙，不是业务页面）
+              const wallPageIdx = pages.findIndex((p) => p.loginWall && p.url === finalUrl);
+              if (wallPageIdx >= 0) pages.splice(wallPageIdx, 1);
+              // 原始 url 在 goto 时已被标 visited——登录成功后显式重访，必须解除
+              visited.delete(url);
+              visited.delete(afterUrl);
               if (!visited.has(afterUrl)) {
                 visited.add(afterUrl);
                 const afterInfo = await extract(afterUrl, depth);
                 pages.push(afterInfo);
+                cfg.onProgress?.({ kind: 'page', url: afterUrl, title: afterInfo.title, depth, interactive: afterInfo.interactive, loginWall: afterInfo.loginWall, links: afterInfo.links.length, status: httpStatus, loadMs: Date.now() - gotoStart });
                 for (const l of afterInfo.links) this.enqueue(afterInfo.url, l, startOrigin, depth, maxDepth, queue, visited, edges);
               }
             }

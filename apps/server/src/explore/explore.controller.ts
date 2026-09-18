@@ -2,22 +2,32 @@ import { Controller, Get, Post, Delete, Body, Query, Param, HttpException, Res, 
 import type { Response } from 'express';
 import { ExploreService, type ExploreInput } from './explore.service';
 import { RunsService } from '../runs/runs.service';
+import { CredentialCrypto } from '@verifyos/agent-core';
 
 @Controller('api')
 export class ExploreController {
   constructor(
     private readonly exploreSvc: ExploreService,
     private readonly runs: RunsService,
+    private readonly crypto: CredentialCrypto,
   ) {}
 
 
   /** 一键探索闭环（异步；进度走 WS explore.event） */
   @Post('explore')
-  explore(@Body() body: ExploreInput) {
+  async explore(@Body() body: ExploreInput & { credentialId?: number }) {
+    // 凭据联动：credentialId 优先——从凭证库解密（与凭证页/验证执行同一数据源），明文不过前端
+    let credential = body?.credential;
+    if (!credential && body?.credentialId != null && Number.isFinite(Number(body.credentialId))) {
+      await this.exploreSvc.ensureReady();
+      const cur = await this.exploreSvc.pg.query(`SELECT payload_enc FROM credential WHERE id = $1 LIMIT 1`, [Number(body.credentialId)]);
+      if (cur.rows.length === 0) throw new NotFoundException('凭据不存在');
+      credential = JSON.parse(this.crypto.decrypt(cur.rows[0].payload_enc as string)) as { username: string; password: string };
+    }
     const input: ExploreInput = {
       startUrl: body?.startUrl ?? this.runs.fixtureEntryUrl,
       intent: body?.intent,
-      credential: body?.credential,
+      credential,
       headful: body?.headful, // G10: headful 人工接管模式
       maxDepth: body?.maxDepth, // G10: 探索参数贯通
       maxPages: body?.maxPages, // J03: maxPages 正式契约

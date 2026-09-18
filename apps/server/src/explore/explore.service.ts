@@ -174,6 +174,7 @@ export class ExploreService extends EventEmitter implements OnModuleInit {
       try {
         const { Pool } = await import('pg');
         const real = new Pool({ connectionString: url.replace('@localhost:', '@127.0.0.1:'), connectionTimeoutMillis: 2500 });
+        real.on('error', (err: Error) => console.error('[explore] pool idle client error (ignored):', err.message));
         await real.query('SELECT 1');
         this.activePool = real as unknown as PgLike;
         this.poolKind = 'pg';

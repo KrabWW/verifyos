@@ -18,12 +18,13 @@ export class LlmService {
     this.model = process.env.LLM_MODEL || 'glm-4.6';
   }
 
-  async chat(messages: { role: 'system' | 'user' | 'assistant'; content: string }[]) {
+  async chat(messages: { role: 'system' | 'user' | 'assistant'; content: string }[], options?: { signal?: AbortSignal }) {
     // TODO(Epic B)：接 Langfuse hook（LANGFUSE_ENABLED=true 时全量 trace）
     const res = await this.client.chat.completions.create({
       model: this.model,
       messages,
       temperature: 0.2,
+      ...(options?.signal ? { signal: options.signal } : {}),
     });
     return res.choices[0]?.message?.content ?? '';
   }

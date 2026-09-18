@@ -4,8 +4,11 @@ import { NestFactory } from '@nestjs/core';
 import {
   ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus,
 } from '@nestjs/common';
+import { ExpressAdapter } from '@nestjs/platform-express';
+import express from 'express';
 import type { Response } from 'express';
 import { AppModule } from './app.module';
+import { initPluginHost } from './plugins/plugin-host';
 
 // 依次尝试根目录与包内 .env（dotenv 默认不覆盖已存在变量；生产由容器注入 env）
 dotenv.config({ path: '.env' });
@@ -58,11 +61,22 @@ class UnifiedExceptionFilter implements ExceptionFilter {
 }
 
 async function bootstrap() {
+  // 自持 express 实例：把 /api/plugins 前缀的子路由器**预挂载**在 Nest router 之前——
+  // 插件路由（listen 后才注册进 router）因此能命中，不会被 Nest 404 截胡。
+  // 注意：这里**不能**全局预挂 express.json——会把请求流提前消费，
+  // Nest 的 body 解析器（rawBody 模式）再读会报 "stream is not readable"，全站 POST 全灭。
+  // 插件路由的 body 由 plugin-host 的 wrapper 按需手动读取。
+  const expressApp = express();
+  const pluginRouter = express.Router();
+  expressApp.use('/api/plugins', pluginRouter);
   // rawBody: true 让 express 在解析 JSON 前保留原始 body（T5：GitHub webhook HMAC 校验需要原始字节）
-  const app = await NestFactory.create(AppModule, { cors: true, rawBody: true });
+  const app = await NestFactory.create(AppModule, new ExpressAdapter(expressApp), { cors: true, rawBody: true });
   app.useGlobalFilters(new UnifiedExceptionFilter());
   const port = Number(process.env.API_PORT || 8080);
   await app.listen(port);
   console.log(`[verifyos-server] listening on http://localhost:${port}`);
+  // 本地插件宿主：加载仓库根 plugins/ 目录（贡献插件扩展点，详见 docs/plugin-dev-guide.md）。
+  // 失败只降级不影响 API：单个插件 activate 异常已在宿主内部隔离。
+  await initPluginHost(app, pluginRouter).catch((e) => console.error('[plugin-host] 初始化失败（不影响 API）:', e));
 }
 bootstrap();

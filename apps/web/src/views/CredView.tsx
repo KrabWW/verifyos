@@ -14,10 +14,18 @@ const CRED_KINDS: Array<{ value: string; label: string }> = [
 const KIND_LABEL: Record<string, string> = Object.fromEntries(CRED_KINDS.map((k) => [k.value, k.label]));
 
 // ---------- 凭据管理（B3 引擎 + UI） ----------
-export function CredView() {
+// 凭据联动：projects = 全部项目（App.tsx projects state）；defaultProjectId = 当前侧栏选中项目 id
+export function CredView({ projects, defaultProjectId }: { projects: Array<{ id: string; name: string; numId?: string }>; defaultProjectId: string }) {
   const [items, setItems] = useState<Array<Record<string, unknown>>>([]);
   const [form, setForm] = useState({ name: '', role: '管理员', kind: 'password', username: '', secret: '' });
   const [msg, setMsg] = useState('');
+  // 凭据联动：所属项目 select（新建默认=当前项目；projects[].id 即数字 id 字符串形式）
+  const [formProject, setFormProject] = useState<string>(defaultProjectId || '');
+  useEffect(() => {
+    if (projects.length && !projects.some((p) => p.id === formProject)) setFormProject(projects[0].id);
+  }, [projects]);
+  // project_id 数字 → 项目名（列表归属列展示；ProjectItem.id=short_id，数字 FK 用 numId）
+  const projNameOf = (pid: unknown) => projects.find((p) => (p.numId ?? p.id) === String(pid))?.name ?? `项目 #${String(pid ?? '?')}`;
   // H06: 编辑态——非 null 时表单转为编辑该凭据（PUT /api/credentials/:id 复用轮换端点）
   const [editingId, setEditingId] = useState<number | null>(null);
   const [bs, setBs] = useState<Array<{ short_id: string; name: string; captured_at: string; ttl_hours: number; live: boolean; source_kind?: string; reuse_count?: number }>>([]);
@@ -31,7 +39,9 @@ export function CredView() {
 
   const add = () => {
     if (!form.name || !form.username || !form.secret) { setMsg('名称/用户名/值必填'); return; }
-    fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, role: form.role, kind: form.kind, username: form.username, password: form.secret }) })
+    // 凭据联动：projectId 必传（缺省会落到演示项目 #1，导致真实项目验证查不到凭据）
+    const projectId = Number(formProject) || undefined;
+    fetch('/api/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name, role: form.role, kind: form.kind, username: form.username, password: form.secret, ...(projectId ? { projectId } : {}) }) })
       .then((r) => r.json())
       .then(() => { setMsg('✓ 已加密保存（AES-256-GCM）'); setForm({ name: '', role: '管理员', kind: 'password', username: '', secret: '' }); load(); })
       .catch(() => setMsg('保存失败'));
@@ -54,7 +64,9 @@ export function CredView() {
   const save = () => {
     if (editingId == null) { add(); return; }
     if (!form.name) { setMsg('名称必填'); return; }
-    const body: Record<string, string> = { name: form.name, role: form.role };
+    const body: Record<string, string | number> = { name: form.name, role: form.role };
+    const projectId = Number(formProject) || undefined;
+    if (projectId) body.projectId = projectId;
     if (form.username) body.username = form.username;
     if (form.secret) body.password = form.secret;
     fetch(`/api/credentials/${editingId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
@@ -89,6 +101,12 @@ export function CredView() {
       <div className="sumcard">
         <h4>{editingId != null ? '✏️ 编辑凭据' : '添加凭据（AES-256-GCM 加密存储 · 角色维度）'}</h4>
         <div className="formrow"><label>名称</label><input className="inp" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="如：演示 CRM 管理员" /></div>
+        <div className="formrow"><label>所属项目</label>
+          <select className="inp" value={formProject} onChange={(e) => setFormProject(e.target.value)}>
+            {projects.map((p) => <option key={p.id} value={p.numId ?? p.id}>{p.name}</option>)}
+          </select>
+        </div>
+        <div className="hint" style={{ fontSize: 11 }}>凭据按「项目 + 角色」与验证执行联动：验证的执行角色（actor）匹配同项目下同角色凭据；匹配链=角色+项目 → 全局角色 → 项目内任意 → 管理员兜底。</div>
         <div className="formrow"><label>角色</label><input className="inp" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></div>
         <div className="formrow"><label>类型</label>
           <select className="inp" value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} disabled={editingId != null}>
@@ -107,16 +125,17 @@ export function CredView() {
         {editingId != null && <button className="btn" onClick={cancelEdit} style={{ marginTop: 6, marginLeft: 6 }}>取消</button>}
         {msg && <span className="dim" style={{ marginLeft: 10, fontSize: 11.5 }}>{msg}</span>}
       </div>
-      <div className="sumcard" style={{ padding: 0, overflow: 'hidden' }}>
+      {/* flexShrink:0——防止在 .pageview flex 列里被压缩后 overflow:hidden 裁掉表格（同执行历史页踩过的坑） */}
+      <div className="sumcard" style={{ padding: 0, overflow: 'hidden', flexShrink: 0 }}>
         <table className="tbl">
-          <tr><th>名称</th><th>角色</th><th>类型</th><th>环境</th><th>值</th><th>更新时间</th><th></th></tr>
+          <tr><th>名称</th><th>角色</th><th>类型</th><th>所属项目</th><th>值</th><th>更新时间</th><th></th></tr>
           {items.length === 0 && <tr><td colSpan={7} className="dim">暂无凭据</td></tr>}
           {items.map((it) => (
             <tr key={String(it.id)} style={editingId === Number(it.id) ? { background: 'rgba(132,204,22,0.08)' } : undefined}>
               <td><b>{String(it.name)}</b>{editingId === Number(it.id) && <span className="chip p-amber" style={{ marginLeft: 6 }}>编辑中</span>}</td>
               <td><span className="chip">{String(it.role)}</span></td>
               <td>{KIND_LABEL[String(it.kind ?? it.type)] ?? String(it.kind ?? it.type ?? '-')}</td>
-              <td>{String(it.environment ?? '默认')}</td>
+              <td style={{ fontSize: 11.5 }}>{projNameOf(it.project_id)}</td>
               <td className="mono" style={{ color: 'var(--muted)' }}>••••••••（加密）</td>
               <td className="mono" style={{ fontSize: 10.5 }}>{updatedAtOf(it)}</td>
               <td><button className="btn" style={{ fontSize: 10.5 }} onClick={() => {

@@ -1,0 +1,10 @@
+{
+  "name": "page-structure",
+  "title": "页面结构抓取（AI 步骤生成对照）",
+  "version": "0.1.0",
+  "description": "先抓真实页面结构再产验证步骤，杜绝臆测 UI：headless Chromium 打开 URL，输出面向 LLM 的紧凑 outline（按钮/输入框/下拉含选项/表格列头/分页特征）+ 可选截图。受测页需登录时传 cookie",
+  "permission": "ask",
+  "routes": [
+    { "method": "POST", "path": "/capture", "description": "body {url, cookie?, screenshot?} → {outline, screenshot?, finalUrl, title}" }
+  ]
+}

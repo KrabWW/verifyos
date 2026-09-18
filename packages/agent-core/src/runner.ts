@@ -1,3 +1,4 @@
+import { extractReasoningMiddleware, defaultSettingsMiddleware, wrapLanguageModel } from 'ai';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -13,14 +14,16 @@ import { isNativeTarget, nativePlaceholderMessage, nativeEnvironmentUrl, type De
 export type RunnerStepKind = 'module' | 'ai' | 'deterministic' | 'assertion';
 
 export interface ActionDef {
-  type: 'goto' | 'fill' | 'click';
+  type: 'goto' | 'fill' | 'click' | 'press';
   selector?: string;
+  /** fill：输入值；press：按键名（默认 Enter） */
   value?: string;
   url?: string;
 }
 
 export interface AssertDef {
-  kind: 'url_contains' | 'text_visible' | 'element_visible';
+  kind: 'url_contains' | 'url_matches' | 'text_visible' | 'element_visible';
+  /** url_matches：value 为 JS 正则源（对 page.url() 全串 test） */
   value: string;
 }
 
@@ -115,6 +118,53 @@ function deviceProfile(name: string) {
   return DEVICE_PROFILES[name] ?? DEVICE_PROFILES['iPhone 13'];
 }
 
+// ---------- Stagehand act 瞬态失败治理（T17） ----------
+
+/**
+ * Stagehand 异常文案净化：剥掉 "Hey! We're sorry..." 样板与版本/Slack 提示，
+ * 只保留真实错误（如 "No object generated: the tool was not called."）——
+ * 落库的 failure_summary 与前端时间线直接可读，不再是一屏英文道歉信。
+ */
+export function cleanStagehandError(raw: string): string {
+  if (!raw) return raw;
+  const parts = raw.split(/Full error:\s*/);
+  const core = (parts.length > 1 ? parts[1] : raw).trim();
+  const lines = core
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(
+      (l) =>
+        l.length > 0 &&
+        !/^Hey! We'?re sorry/i.test(l) &&
+        !/^Stagehand version:/i.test(l) &&
+        !/^If you need help/i.test(l) &&
+        !/stagehand\.dev\/slack/i.test(l) &&
+        !/^Full error:/i.test(l),
+    );
+  const msg = lines.join(' ').trim();
+  return msg || raw.trim();
+}
+
+/** act 单次尝试超时上限（覆盖 LLM 规划 + 页面执行全链路；复合指令应拆步而非调大） */
+const ACT_TIMEOUT_MS = 150_000;
+const ACT_TIMEOUT_SENTINEL = '__VERIFYOS_ACT_TIMEOUT__';
+
+/** 超时类错误（终态不重试——无法确认页面是否已被部分操作） */
+function isTimeoutError(raw: string): boolean {
+  if (raw.includes(ACT_TIMEOUT_SENTINEL)) return true;
+  return /timed?[\s-]*out|timeout/i.test(raw) && !/ETIMEDOUT|ECONN/i.test(raw);
+}
+
+/** LLM 网络层瞬态错误（规划未完成，重试安全） */
+function isNetworkLlmError(raw: string): boolean {
+  return /ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|socket hang up|rate.?limit|\b429\b|\b5\d\d\b/i.test(raw);
+}
+
+/** LLM 规划级瞬态错误（同指令重试即可恢复；规划失败时尚未执行任何页面动作，重放安全） */
+function isRetryableActError(msg: string): boolean {
+  return /no object generated|tool was not called|not called/i.test(msg);
+}
+
 // ---------- RunRunner ----------
 
 export interface StepResult {
@@ -152,7 +202,7 @@ export interface RunLlmConfig {
  * RunRunner（C1）：混合步骤执行引擎。
  * - module/deterministic：CSS 选择器动作，零 LLM（llmCalls=0 可观测）
  * - ai：Stagehand act（A5 组合 glm-4.5v + openai-compatible），LocatorCache 命中后零 LLM 重放
- * - assertion：url_contains / text_visible / element_visible
+ * - assertion：url_contains / url_matches / text_visible / element_visible
  * - 全程发 A3 RunEvent 事件流（ev 构造器），失败快速中断
  */
 export class RunRunner {
@@ -160,6 +210,64 @@ export class RunRunner {
   private llmCalls = 0;
 
   constructor(private readonly llm: RunLlmConfig) {}
+
+  /**
+   * Stagehand act + 瞬态失败自动重试（T17）。
+   * glm 系 reasoning 模型偶发「返回自然语言而未调用工具」——Stagehand 报
+   * "No object generated: the tool was not called."，属采样级瞬态错误：
+   * 规划失败时页面尚未执行任何动作，同指令重试即恢复。
+   * - 仅对规划级/网络级瞬态错误重试（最多 3 次尝试），重试经 thinking 事件透出；
+   * - 超时是终态：无法确认 act 是否已部分执行页面动作，重放有双重操作风险，直接失败；
+   * - timeoutMs 走 Stagehand ActOptions，另加 +5s 守护 race 兜底（防其内部不生效无限挂起）。
+   */
+  private async actWithRetry(
+    sh: Stagehand,
+    page: Page,
+    instruction: string,
+    opts: { runId: string; stepId: string; emit: (e: RunEvent) => void; onLlmCall: () => void; maxAttempts?: number },
+  ): Promise<unknown> {
+    const maxAttempts = opts.maxAttempts ?? 3;
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        opts.onLlmCall();
+        const actPromise = (sh.page.act({ action: instruction, timeoutMs: ACT_TIMEOUT_MS }) as unknown) as Promise<unknown>;
+        const result = await Promise.race([
+          actPromise,
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(ACT_TIMEOUT_SENTINEL)), ACT_TIMEOUT_MS + 5000)),
+        ]);
+        if (attempt > 1) console.log(`[runner] act 重试第 ${attempt} 次成功：「${instruction.slice(0, 40)}…」`);
+        // ActResult 语义判别（防假绿）：Stagehand 超时/找不到目标时不抛错，而是返回 success:false——
+        // 不检查就会把失败步骤标成 pass（run_mu56rtwb st_a2 教训：150s 超时被当成功，列表未筛选）
+        const ar = result as { success?: boolean; message?: string } | null | undefined;
+        if (ar && ar.success === false) {
+          const m = String(ar.message ?? 'act 未成功').slice(0, 200);
+          if (isTimeoutError(m)) {
+            throw new Error(`act 规划/执行超时（>${ACT_TIMEOUT_MS / 1000}s，页面未被操作）；复合指令建议在编辑器拆分为多个原子步骤`);
+          }
+          throw new Error(`act 未成功执行：${m}`);
+        }
+        return result;
+      } catch (err) {
+        lastErr = err;
+        const raw = err instanceof Error ? err.message : String(err);
+        const msg = cleanStagehandError(raw);
+        if (isTimeoutError(raw)) {
+          lastErr = new Error(`act 规划/执行超时（>${ACT_TIMEOUT_MS / 1000}s），已中止；复合指令建议在编辑器拆分为多个原子步骤`);
+          break;
+        }
+        if (attempt < maxAttempts && (isRetryableActError(msg) || isNetworkLlmError(raw))) {
+          console.log(`[runner] act 第 ${attempt} 次失败（${msg}），${attempt * 800}ms 后重试：「${instruction.slice(0, 40)}…」`);
+          opts.emit(ev.thinking(opts.runId, opts.stepId, `act 第 ${attempt} 次失败（${msg}），自动重试 ${attempt + 1}/${maxAttempts}…`));
+          await page.waitForTimeout(attempt * 800);
+          continue;
+        }
+        break;
+      }
+    }
+    throw lastErr instanceof Error ? new Error(cleanStagehandError(lastErr.message)) : new Error(cleanStagehandError(String(lastErr)));
+  }
 
   /** 从自然语言指令抽取最可能的交互文本（「关于我们」→ 关于我们） */
   private instructionText(instruction: string): string | undefined {
@@ -308,7 +416,16 @@ export class RunRunner {
     }
 
     const provider = createOpenAICompatible({ name: 'glm', apiKey: this.llm.apiKey, baseURL: this.llm.baseURL });
-    const llmClient = new AISdkClient({ model: provider(this.llm.model) } as never);
+    const llmClient = new AISdkClient({
+        // glm-5.3-flash 是 reasoning 模型：剥离 think 内容 + 放大输出预算，避免 act 工具调用被 reasoning 吃掉后报 "No object generated"
+        model: wrapLanguageModel({
+          model: provider(this.llm.model),
+          middleware: [
+            extractReasoningMiddleware({ tagName: 'think' }),
+            defaultSettingsMiddleware({ settings: { maxTokens: 8192, temperature: 0 } }),
+          ],
+        }),
+      } as never);
     const sh = new Stagehand({
       env: 'LOCAL',
       llmClient,
@@ -366,17 +483,27 @@ export class RunRunner {
         try {
           if (step.goto) {
             await page.goto(step.goto, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            // SPA（React 等）挂载是异步的——等网络空闲，否则 fill/click 落在空壳 DOM 上被 React 吞掉
+            await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => undefined);
             emit(ev.action(runId, step.id, 'browser', 'goto', { url: step.goto }));
           }
 
           for (const a of step.actions ?? []) {
             if (a.type === 'goto') {
               await page.goto(a.url!, { waitUntil: 'domcontentloaded', timeout: 15000 });
+              await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => undefined);
             } else if (a.type === 'fill') {
+              await page.waitForSelector(a.selector!, { timeout: 8000, state: 'visible' }).catch(() => undefined);
               await page.fill(a.selector!, a.value ?? '');
             } else if (a.type === 'click') {
-              await page.click(a.selector!);
+              // click 自带 actionability 等待（visible+enabled+stable，8s 超时）——SPA 受控
+              // 表单按钮在状态就绪前是 disabled，page.click 会一直等到可点
+              await page.click(a.selector!, { timeout: 8000 }).catch(() => undefined);
+            } else if (a.type === 'press') {
+              await page.press(a.selector!, a.value ?? 'Enter');
             }
+            // 动作间 400ms 节流：受控组件状态传播需要时间
+            await page.waitForTimeout(400);
             emit(ev.action(runId, step.id, 'browser', a.type, { selector: a.selector, value: a.value, url: a.url, llmCalls: 0 }));
           }
 
@@ -395,20 +522,34 @@ export class RunRunner {
               emit(ev.action(runId, step.id, 'browser', 'replay', { selector: cached.selector, llmCalls: 0, cache: 'hit' }));
             } else if (step.selector) {
               // T16 固化：ai 步骤已带确定性 selector → 零 LLM 直接执行，并回写缓存
-              hit = true;
               const scriptedAction = step.action ?? 'click';
-              if (scriptedAction === 'click') await page.click(step.selector);
-              else await page.fill(step.selector, step.value ?? '');
-              this.cache.set(step.instruction, { selector: step.selector, action: scriptedAction, value: step.value });
-              emit(ev.action(runId, step.id, 'browser', 'replay', { selector: step.selector, llmCalls: 0, cache: 'scripted' }));
+              const resolves = await page.locator(step.selector).count().catch(() => 0);
+              if (resolves > 0) {
+                hit = true;
+                if (scriptedAction === 'click') await page.click(step.selector);
+                else await page.fill(step.selector, step.value ?? '');
+                this.cache.set(step.instruction, { selector: step.selector, action: scriptedAction, value: step.value });
+                emit(ev.action(runId, step.id, 'browser', 'replay', { selector: step.selector, llmCalls: 0, cache: 'scripted' }));
+              } else {
+                // 固化 selector 在当前页解析不到（污染或 SPA 路由变化）→ 丢弃，走 LLM act
+                console.log(`[runner] 固化 selector 解析失败（${resolves}），回退 LLM act：「${step.instruction}」`);
+                emit(ev.thinking(runId, step.id, `固化 selector 失效，执行指令：${step.instruction}（LLM 规划中）`));
+                await this.injectProbe(page).catch(() => undefined);
+                await this.actWithRetry(sh, page, step.instruction, {
+                  runId, stepId: step.id, emit,
+                  onLlmCall: () => { stepLlm++; this.llmCalls++; },
+                });
+                emit(ev.action(runId, step.id, 'browser', 'act', { instruction: step.instruction, llmCalls: stepLlm }));
+              }
             } else {
-              stepLlm++;
-              this.llmCalls++;
               emit(ev.thinking(runId, step.id, `执行指令：${step.instruction}（LLM 规划中）`));
               // T16：act 前注入交互探针（点击/输入捕获，跨导航存活），供 act 后兜底反查 selector
               await this.injectProbe(page).catch(() => undefined);
-              const result = (await sh.page.act(step.instruction)) as unknown;
-              emit(ev.action(runId, step.id, 'browser', 'act', { instruction: step.instruction, llmCalls: 1 }));
+              const result = (await this.actWithRetry(sh, page, step.instruction, {
+                runId, stepId: step.id, emit,
+                onLlmCall: () => { stepLlm++; this.llmCalls++; },
+              })) as unknown;
+              emit(ev.action(runId, step.id, 'browser', 'act', { instruction: step.instruction, llmCalls: stepLlm }));
               // 多策略提取 selector 入缓存（拿不到则该指令保持 miss）
               const r = result as { action?: string | { selector?: string; value?: string }; selector?: string } | null;
               const rawSel = typeof r?.action === 'string' ? undefined : r?.action?.selector;
@@ -419,9 +560,12 @@ export class RunRunner {
                 const fb = await this.fallbackSelector(page, step.instruction);
                 if (fb) { sel = fb.selector; action = fb.action; value = fb.value; }
               }
-              if (sel) {
+              if (sel && (rawSel ?? r?.selector)) {
+                // 只缓存 Stagehand 精确返回的 selector；fallback 启发式结果页内重放不可靠，禁止入缓存
                 this.cache.set(step.instruction, { selector: sel, action, value });
                 console.log(`[runner] selector 提取成功：「${step.instruction}」→ ${sel} (${action})`);
+              } else if (sel) {
+                console.log(`[runner] fallback selector 不入缓存：「${step.instruction}」→ ${sel}`);
               } else {
                 console.log(`[runner] selector 提取失败：「${step.instruction}」`);
               }
@@ -434,9 +578,23 @@ export class RunRunner {
 
           if (step.assert) {
             const a = step.assert;
-            if (a.kind === 'url_contains') {
-              const url = page.url();
-              if (!url.includes(a.value)) throw new Error(`URL 不含「${a.value}」，实际 ${url}`);
+            if (a.kind === 'url_contains' || a.kind === 'url_matches') {
+              // SPA 点击/提交后跳转是异步的——URL 断言轮询等待（≤10s），一次性判定会误报 fail
+              const deadline = Date.now() + 10000;
+              let ok = false;
+              let url = page.url();
+              while (Date.now() < deadline) {
+                url = page.url();
+                if (a.kind === 'url_contains') ok = url.includes(a.value);
+                else { try { ok = new RegExp(a.value).test(url); } catch { throw new Error(`url_matches 正则非法：${a.value}`); } }
+                if (ok) break;
+                await page.waitForTimeout(500);
+              }
+              if (!ok) {
+                throw new Error(a.kind === 'url_contains'
+                  ? `URL 不含「${a.value}」，实际 ${url}`
+                  : `URL 不匹配 /${a.value}/，实际 ${url}`);
+              }
             } else if (a.kind === 'text_visible') {
               await page.waitForSelector(`text=${a.value}`, { timeout: 5000 });
             } else if (a.kind === 'element_visible') {
@@ -446,7 +604,7 @@ export class RunRunner {
           }
         } catch (err) {
           stepVerdict = 'fail';
-          failReason = err instanceof Error ? err.message : String(err);
+          failReason = cleanStagehandError(err instanceof Error ? err.message : String(err));
           emit(ev.observation(runId, step.id, false, failReason, Date.now() - st0));
         }
 
@@ -496,7 +654,7 @@ export class RunRunner {
       }
     } catch (err) {
       verdict = 'fail';
-      failureSummary = err instanceof Error ? err.message : String(err);
+      failureSummary = cleanStagehandError(err instanceof Error ? err.message : String(err));
     } finally {
       if (evidenceStore) {
         try {

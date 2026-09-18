@@ -1,0 +1,1 @@
+{"name":"hello-contrib","title":"Hello Demo","version":"0.1.1","description":"zip install loop demo","permission":"auto","routes":[{"method":"GET","path":"/hello"}]}

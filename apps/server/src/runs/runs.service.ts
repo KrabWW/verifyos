@@ -8,13 +8,14 @@ import { CredentialCrypto } from '@verifyos/agent-core';
 import { ev, type RunEvent } from '@verifyos/shared';
 import { FeishuNotifier } from '../connectors/feishu.notifier';
 
-/** 演示步骤（对 fixture 站点）：module 确定性登录 → assertion → ai → assertion */
+/** 演示步骤（对 fixture 站点）：module 确定性登录 → assertion → ai → assertion。
+ *  值用占位符：trigger() 时 injectCredential 按角色/凭据库渲染（无凭据时兜底 admin/test123） */
 export const DEMO_STEPS: StepDef[] = [
   {
     id: 'st_01', title: '管理员登录', kind: 'module',
     actions: [
-      { type: 'fill', selector: '#username', value: 'admin' },
-      { type: 'fill', selector: '#password', value: 'test123' },
+      { type: 'fill', selector: '#username', value: '{{username}}' },
+      { type: 'fill', selector: '#password', value: '{{password}}' },
       { type: 'click', selector: 'button[type="submit"]' },
     ],
   },
@@ -35,6 +36,32 @@ export class RunsService extends EventEmitter implements OnModuleInit {
     private readonly feishu: FeishuNotifier,
   ) {
     super();
+  }
+
+  /** run.target 真实归属：startUrl host → project_environment → application/project；解析不到回退 app_demo（旧行为）。
+   *  项(d)：顺带返回 projectId（供 injectCredential 项目作用域凭据解析）；ORDER BY 精确 host 相等优先 + pe.id 兜底。 */
+  private async resolveTarget(startUrl: string): Promise<{ applicationShortId: string; platform: 'web'; environment: { url: string; isPreview: boolean }; projectId?: number }> {
+    let app = 'app_demo';
+    let projectId: number | undefined;
+    try {
+      await this.exploreSvc.ensureReady();
+      let host = '';
+      try { host = new URL(startUrl).host; } catch { host = ''; }
+      if (host) {
+        const r = await this.exploreSvc.pg.query(
+          `SELECT a.short_id, pe.project_id FROM project_environment pe
+           JOIN application a ON a.project_id = pe.project_id
+           WHERE pe.url <> '' AND (position(lower($1) in lower(pe.url)) > 0 OR position(lower(pe.url) in lower($1)) > 0)
+           ORDER BY (lower(pe.url) = lower($1)) DESC, pe.id LIMIT 1`,
+          [host],
+        );
+        if (r.rows.length > 0) {
+          app = String(r.rows[0].short_id);
+          projectId = Number(r.rows[0].project_id);
+        }
+      }
+    } catch { /* 解析失败回退 app_demo */ }
+    return { applicationShortId: app, platform: 'web', environment: { url: startUrl, isPreview: false }, ...(projectId !== undefined && Number.isFinite(projectId) ? { projectId } : {}) };
   }
   private runner: RunRunner | null = null;
   private fixtureUrl = '';
@@ -75,12 +102,43 @@ export class RunsService extends EventEmitter implements OnModuleInit {
     }
   }
 
-  async trigger(input: { startUrl?: string; steps?: StepDef[]; device?: string; verificationShortId?: string; trigger?: string }): Promise<{ runId: string }> {
+  async trigger(input: { startUrl?: string; steps?: StepDef[]; device?: string; verificationShortId?: string; trigger?: string; actor?: string }): Promise<{ runId: string }> {
     const runId = `run_${Date.now().toString(36)}`;
     const t0 = Date.now();
     if (input.verificationShortId) this.runVer.set(runId, input.verificationShortId);
     const startUrl = input.startUrl ?? `${this.fixtureUrl}/login.html`;
-    const steps = await this.injectCredential(input.steps ?? DEMO_STEPS);
+    const target = await this.resolveTarget(startUrl);
+    // 项(a)：项目作用域解析 projectId —— verificationShortId 优先（verification→qa_point→application→project
+    // 一条 SQL 链，最准确），否则沿用 resolveTarget 从 startUrl 解析的 projectId
+    let projectId = target.projectId;
+    if (input.verificationShortId) {
+      try {
+        const pr = await this.exploreSvc.pg.query(
+          `SELECT a.project_id FROM verification v
+           JOIN qa_point q ON q.id = v.qa_point_id
+           JOIN application a ON a.id = q.application_id
+           WHERE v.short_id = $1 LIMIT 1`,
+          [input.verificationShortId],
+        );
+        if (pr.rows.length > 0) projectId = Number(pr.rows[0].project_id);
+      } catch { /* 解析失败沿用 startUrl 推导的 projectId */ }
+    }
+    // steps 缺省但带 verificationShortId → 从 verification 表加载（占位符版，随 injectCredential 渲染）；
+    // 两者皆无 → DEMO_STEPS（fixture 演示，旧行为）
+    let srcSteps = input.steps;
+    if (!srcSteps && input.verificationShortId) {
+      try {
+        await this.exploreSvc.ensureReady();
+        const vr = await this.exploreSvc.pg.query(
+          `SELECT steps FROM verification WHERE short_id = $1 LIMIT 1`,
+          [input.verificationShortId],
+        );
+        if (vr.rows.length > 0 && Array.isArray(vr.rows[0].steps) && vr.rows[0].steps.length > 0) {
+          srcSteps = vr.rows[0].steps as StepDef[];
+        }
+      } catch { /* 加载失败回退 DEMO_STEPS */ }
+    }
+    const steps = await this.injectCredential(srcSteps ?? DEMO_STEPS, input.actor, projectId);
     const baseDir = path.resolve(process.cwd(), '../../out/evidence');
     const store = this.evidenceStore ?? (this.evidenceStore = new LocalDiskStore(baseDir));
 
@@ -119,7 +177,7 @@ export class RunsService extends EventEmitter implements OnModuleInit {
              VALUES ($1, $2::jsonb, $7, (SELECT id FROM verification WHERE short_id = $8 LIMIT 1), $3, $4, $5, $6::jsonb, now())`,
             [
               runId,
-              JSON.stringify({ applicationShortId: 'app_demo', platform: 'web', environment: { url: startUrl, isPreview: false } }),
+              JSON.stringify(target),
               verdict,
               outcome.durationMs,
               outcome.failureSummary ?? null,
@@ -128,6 +186,13 @@ export class RunsService extends EventEmitter implements OnModuleInit {
               input.verificationShortId ?? null,
             ],
           );
+          // ① verification 状态随 Run verdict 回填（webhook/PR 触发的 Run 有关联 verification 时生效）
+          if (input.verificationShortId) {
+            await this.exploreSvc.pg.query(
+              `UPDATE verification SET status = $1, updated_at = now() WHERE short_id = $2`,
+              [verdict, input.verificationShortId],
+            ).catch(() => undefined);
+          }
         } catch (err) {
           console.error('[runs] 落库失败（不影响 Run 结果）：', err instanceof Error ? err.message : err);
         }
@@ -153,14 +218,14 @@ export class RunsService extends EventEmitter implements OnModuleInit {
         const message = err instanceof Error ? err.message : String(err);
         const durationMs = Date.now() - t0;
         const verdict = 'fail' as const;
-        const target = {
-          applicationShortId: 'app_demo',
+        const failTarget = {
+          applicationShortId: target.applicationShortId,
           platform: 'web' as const,
           environment: { url: startUrl, isPreview: false },
         };
         // events 里补终态事件（run.started 之后的 run.completed），供 events 回放端点/前端拿到终态
         const events: RunEvent[] = [
-          ev.runStarted(runId, target),
+          ev.runStarted(runId, failTarget),
           ev.runCompleted(runId, verdict, { error: message }, message),
         ];
         const outcome: RunOutcome = {
@@ -183,7 +248,7 @@ export class RunsService extends EventEmitter implements OnModuleInit {
              VALUES ($1, $2::jsonb, $7, (SELECT id FROM verification WHERE short_id = $8 LIMIT 1), $3, $4, $5, $6::jsonb, now())`,
             [
               runId,
-              JSON.stringify({ applicationShortId: 'app_demo', platform: 'web', environment: { url: startUrl, isPreview: false } }),
+              JSON.stringify(target),
               verdict,
               durationMs,
               message,
@@ -209,30 +274,75 @@ export class RunsService extends EventEmitter implements OnModuleInit {
     return { runId };
   }
 
-  /** 从凭据库取角色凭据注入登录步骤（fallback：默认演示凭据） */
-  private async injectCredential(steps: StepDef[]): Promise<StepDef[]> {
+  /**
+   * 从凭据库取角色凭据注入登录步骤（项目作用域，安全审查项 b/c）。
+   * - 优先替换 {{username}}/{{password}} 占位符（module actions 与 ai instruction 都支持）
+   * - 旧格式兼容收敛（项c）：fill 选择器 #username/#password 仅当 value 为空或仍为占位符时才替换
+   *   （不再无条件按 selector 覆盖——避免覆盖配方/用户编辑的合法固定值）
+   * - 凭据解析链与 LoginRecipesService.render() 对齐（项b）：角色+项目 → 角色（全局）→
+   *   项目内任意 → 全局管理员 → demo 兜底 admin/test123（旧行为）
+   */
+  private async injectCredential(steps: StepDef[], actor?: string, projectId?: number): Promise<StepDef[]> {
     let username = 'admin';
     let password = 'test123';
+    let fromStore = false;
+    const role = actor?.trim() || '管理员';
     try {
       await this.exploreSvc.ensureReady();
-      const r = await this.exploreSvc.pg.query(
-        `SELECT payload_enc FROM credential WHERE role = '管理员' ORDER BY created_at DESC LIMIT 1`,
-      );
-      if (r.rows.length > 0) {
-        const vals = JSON.parse(this.crypto.decrypt(r.rows[0].payload_enc as string)) as { username?: string; password?: string };
+      // 项(b) 项目作用域凭据链（与 render() 一致）：role+project → role 全局 → project 内任意 → 全局管理员
+      const tryQuery = async (sql: string, params: unknown[]): Promise<{ payload_enc: string } | null> => {
+        const r = await this.exploreSvc.pg.query(sql, params);
+        return (r.rows[0] as { payload_enc: string } | undefined) ?? null;
+      };
+      let row: { payload_enc: string } | null = null;
+      if (projectId != null && Number.isFinite(projectId)) {
+        row = await tryQuery(
+          `SELECT payload_enc FROM credential WHERE role = $1 AND project_id = $2 ORDER BY created_at DESC LIMIT 1`,
+          [role, projectId],
+        );
+      }
+      if (!row) {
+        row = await tryQuery(
+          `SELECT payload_enc FROM credential WHERE role = $1 ORDER BY created_at DESC LIMIT 1`,
+          [role],
+        );
+      }
+      if (!row && projectId != null && Number.isFinite(projectId)) {
+        row = await tryQuery(
+          `SELECT payload_enc FROM credential WHERE project_id = $1 ORDER BY created_at DESC LIMIT 1`,
+          [projectId],
+        );
+      }
+      if (!row && role !== '管理员') {
+        row = await tryQuery(
+          `SELECT payload_enc FROM credential WHERE role = '管理员' ORDER BY created_at DESC LIMIT 1`,
+          [],
+        );
+      }
+      if (row) {
+        const vals = JSON.parse(this.crypto.decrypt(row.payload_enc)) as { username?: string; password?: string };
         if (vals.username) username = vals.username;
         if (vals.password) password = vals.password;
+        fromStore = true;
       }
     } catch {
       // 凭据库不可达 → 用默认
     }
+    if (!fromStore) console.log(`[runs] 凭据注入：未找到可用凭据（actor=${actor ?? '未指定'}, projectId=${projectId ?? '未指定'}），使用默认演示凭据`);
     return steps.map((s) => ({
       ...s,
       actions: s.actions?.map((a) => {
-        if (a.type === 'fill' && a.selector === '#username') return { ...a, value: username };
-        if (a.type === 'fill' && a.selector === '#password') return { ...a, value: password };
+        if (a.type !== 'fill') return a;
+        if (a.value === '{{username}}') return { ...a, value: username };
+        if (a.value === '{{password}}') return { ...a, value: password };
+        // 旧格式兼容收敛（项c）：仅当值为空或仍是占位符时按 selector 兜底替换，不覆盖合法固定值
+        if (a.selector === '#username' && (a.value == null || a.value === '' || a.value === '{{username}}')) return { ...a, value: username };
+        if (a.selector === '#password' && (a.value == null || a.value === '' || a.value === '{{password}}')) return { ...a, value: password };
         return a;
       }),
+      instruction: s.instruction
+        ?.replace(/\{\{username\}\}/g, username)
+        .replace(/\{\{password\}\}/g, password),
     }));
   }
 
@@ -314,7 +424,7 @@ export class RunsService extends EventEmitter implements OnModuleInit {
    * 编辑器试运行（同步返回）：跑到 upto 下标（含）即收尾，不落 run 表、不广播 WS。
    * 返回截图/步骤结果 + ai 步提取到的定位候选（顺带已写入 LocatorCache，正式运行即可零 LLM 重放）。
    */
-  async dryRun(input: { steps: StepDef[]; startUrl?: string; upto?: number }): Promise<{
+  async dryRun(input: { steps: StepDef[]; startUrl?: string; upto?: number; actor?: string }): Promise<{
     runId: string;
     verdict: string;
     durationMs: number;
@@ -325,15 +435,18 @@ export class RunsService extends EventEmitter implements OnModuleInit {
     if (!this.runner) throw new Error('RunRunner 未初始化');
     const runId = `dry_${Date.now().toString(36)}`;
     const startUrl = input.startUrl ?? `${this.fixtureUrl}/login.html`;
+    // 凭据注入（安全审查项）：编辑器存的占位符步骤在试运行前按 actor+项目渲染，
+    // 真实密码不进 DB/响应；解析不到项目时 injectCredential 内部走角色/全局链
+    const target = await this.resolveTarget(startUrl);
+    const steps = await this.injectCredential(input.steps, input.actor, target.projectId);
     const store = this.evidenceStore ?? (this.evidenceStore = new LocalDiskStore(this.evidenceBaseDir));
     const outcome = await this.runner.run({
       runId,
       startUrl,
-      steps: input.steps,
+      steps,
       evidenceStore: store,
       ...(input.upto !== undefined ? { stopAfterStepIndex: Math.max(0, input.upto) } : {}),
     });
-    const steps = input.steps ?? [];
     const stepResults = outcome.stepResults.map((r, i) => {
       // ai 步定位候选：从共享 LocatorCache 读（试运行 act 成功即已写入，正式运行可零 LLM 重放）
       let selector: string | undefined;

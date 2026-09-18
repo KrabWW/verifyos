@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Compass, Zap, Wand2, Trash2, Check, TriangleAlert, X } from 'lucide-react';
 import type { Route } from '../shared';
 
@@ -32,6 +32,12 @@ export function QaView(props?: {
   const [batchMsg, setBatchMsg] = useState('');
   const [batchDone, setBatchDone] = useState(false);
   const [batching, setBatching] = useState(false);
+  // U30：单条「生成验证」AI 起草中（LLM 10-40s），防重复点击
+  const [genBusy, setGenBusy] = useState<string | null>(null);
+  // U31：分页（修 QA 点库长列表不可滚动 bug —— 表格容器内部滚动 + 底部分页器）
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const PAGE_SIZE_OPTIONS = [20, 50, 100];
   const [drawer, setDrawer] = useState<QaItem | null>(null);
   // H03: 顶部错误条（红底白字，可关闭）+ 成功 toast（绿色，3s 自动消失）
   const [err, setErr] = useState('');
@@ -74,6 +80,15 @@ export function QaView(props?: {
     const textOk = !q || String(it.title).toLowerCase().includes(q) || String(it.short_id).toLowerCase().includes(q);
     return riskOk && textOk;
   });
+  // U31：分页派生数据（filtered 切片）——filter/搜索变化时重置回第 1 页
+  const total = filtered.length;
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const pageItems = useMemo(
+    () => filtered.slice((safePage - 1) * pageSize, safePage * pageSize),
+    [filtered, safePage, pageSize],
+  );
+  const setFilterRiskResettingPage = (v: 'all' | 'high' | 'medium' | 'low') => { setFilterRisk(v); setPage(1); };
   const toggle = (id: string) => setSel((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -96,16 +111,24 @@ export function QaView(props?: {
   };
 
   // U21 动线闭环：QA 点（测什么）→ 生成验证（怎么测）→ 跳编辑器微调 → 保存并运行（执行页看结果）
+  // U30：单条生成默认走 AI 起草（LLM 按 QA 点场景出业务步骤，10-40 秒）；批量生成保持模板秒出
   const genVerify = (shortId: unknown) => {
-    fetch('/api/verifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ qaShortId: shortId }) })
+    const key = String(shortId);
+    if (genBusy) return;
+    setGenBusy(key);
+    showToast(`AI 起草中（${key}）——按场景生成业务步骤，约 10-40 秒…`);
+    fetch('/api/verifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ qaShortId: shortId, mode: 'ai' }) })
       .then((r) => r.json())
       .then((d) => {
         if (d.shortId) {
-          showToast(`✓ 已生成验证 ${d.shortId}——已带到编辑器，可微调步骤后「保存并运行」`);
+          showToast(d.generatedBy === 'ai'
+            ? `✓ 已生成验证 ${d.shortId}（AI 起草 ${d.steps?.length ?? 0} 步）——已带到执行页，可微调后「保存并运行」`
+            : `✓ 已生成验证 ${d.shortId}（AI 不可用，模板生成 ${d.steps?.length ?? 0} 步）`);
           props?.onGoQaEditor?.(d.shortId);
-        } else setErr(`验证生成失败（QA 点 ${String(shortId)}）`);
+        } else setErr(`验证生成失败（QA 点 ${key}）`);
       })
-      .catch(() => setErr(`验证生成失败（QA 点 ${String(shortId)}）：网络或服务异常`));
+      .catch(() => setErr(`验证生成失败（QA 点 ${key}）：网络或服务异常`))
+      .finally(() => setGenBusy(null));
   };
 
   const batchGen = () => {
@@ -186,14 +209,14 @@ export function QaView(props?: {
           <span className="sp" />
           <button className="btn" onClick={load}>刷新</button>
           <button className="btn" onClick={selectHighRisk}>只选 High Risk</button>
-          <button className="btn primary" disabled={sel.size === 0 || batching} onClick={batchGen}><Zap size={11} /> 批量生成验证（{sel.size}）</button>
+          <button className="btn primary" disabled={sel.size === 0 || batching} onClick={batchGen}><Zap size={11} /> 批量生成验证（{sel.size}）·模板秒出</button>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
           {/* U18: 筛选行同表格语言——色点+灰字，选中 ink 描边 */}
           {([['all', '全部', ''], ['high', '高', 'high'], ['medium', '中', 'medium'], ['low', '低', 'low']] as const).map(([v, label, s]) => (
-            <span key={v} className="riskcell" style={{ cursor: 'pointer', opacity: filterRisk === 'all' || filterRisk === v ? 1 : .45, outline: filterRisk === v ? '2px solid var(--ink)' : 'none', outlineOffset: 2, borderRadius: 4, padding: '1px 4px' }} onClick={() => setFilterRisk(v)}>{s && <i className={`r-${s}`} style={{ width: 7, height: 7, borderRadius: 50, background: s === 'high' ? 'var(--red)' : s === 'medium' ? 'var(--amber)' : '#94a3b8', display: 'inline-block' }} />}{label}</span>
+            <span key={v} className="riskcell" style={{ cursor: 'pointer', opacity: filterRisk === 'all' || filterRisk === v ? 1 : .45, outline: filterRisk === v ? '2px solid var(--ink)' : 'none', outlineOffset: 2, borderRadius: 4, padding: '1px 4px' }} onClick={() => setFilterRiskResettingPage(v)}>{s && <i className={`r-${s}`} style={{ width: 7, height: 7, borderRadius: 50, background: s === 'high' ? 'var(--red)' : s === 'medium' ? 'var(--amber)' : '#94a3b8', display: 'inline-block' }} />}{label}</span>
           ))}
-          <input className="inp" style={{ maxWidth: 200, marginLeft: 'auto', padding: '3px 9px', fontSize: 11.5 }} placeholder="搜索标题 / ID…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input className="inp" style={{ maxWidth: 200, marginLeft: 'auto', padding: '3px 9px', fontSize: 11.5 }} placeholder="搜索标题 / ID…" value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
           <span className="dim" style={{ fontSize: 10.5 }}>{filtered.length}/{items.length}</span>
         </div>
         {batchMsg && (
@@ -204,11 +227,16 @@ export function QaView(props?: {
             )}
           </div>
         )}
+        {/* U31：滚动容器（修不可滚动 bug）——maxHeight 让 46+ 行列表在视口内内部滚动，表头 sticky 吸顶 */}
+        <div className="qa-tbl-wrap">
         <table className="tbl">
+          <thead>
           <tr>
             <th style={{ width: 30 }}><input type="checkbox" checked={allFilteredSelected} onChange={toggleAll} title="全选/清空当前过滤集" /></th>
             <th>ID</th><th>标题</th><th>类别</th><th>风险</th><th>置信度</th><th>状态</th><th></th>
           </tr>
+          </thead>
+          <tbody>
           {loaded && filtered.length === 0 && (
             <tr>
               <td colSpan={8} style={{ padding: '26px 14px', textAlign: 'center' }}>
@@ -226,7 +254,7 @@ export function QaView(props?: {
               </td>
             </tr>
           )}
-          {items.map((it) => {
+          {pageItems.map((it) => {
             const id = String(it.short_id);
             return (
               <tr key={id} style={{ background: sel.has(id) ? 'var(--lime-bg)' : undefined, cursor: 'pointer' }} onClick={() => setDrawer(it)}>
@@ -237,11 +265,30 @@ export function QaView(props?: {
                 <td><span className={`riskcell ${riskCls(it.risk)}`}>{it.risk ? <i /> : null}{riskLabel(it.risk)}</span></td>
                 <td className="mono">{it.confidence ? String(Number(it.confidence).toFixed(2)) : '-'}</td>
                 <td><span className={`stcell${String(it.status) === 'discovered' ? ' st-action' : ''}`}>{String(it.status)}</span></td>
-                <td onClick={(e) => e.stopPropagation()}><button className="btn" style={{ fontSize: 10.5 }} onClick={() => confirmQa(it.short_id)} disabled={it.status !== 'discovered'} title={it.status === 'discovered' ? '确认该 QA 点（状态机 discovered→selected）' : `已 ${String(it.status)}`}><Check size={10} /> 确认</button>{' '}<button className="btn" style={{ fontSize: 10.5 }} onClick={() => genVerify(it.short_id)}><Wand2 size={10} /> 生成验证</button></td>
+                <td onClick={(e) => e.stopPropagation()}><button className="btn" style={{ fontSize: 10.5 }} onClick={() => confirmQa(it.short_id)} disabled={it.status !== 'discovered'} title={it.status === 'discovered' ? '确认该 QA 点（状态机 discovered→selected）' : `已 ${String(it.status)}`}><Check size={10} /> 确认</button>{' '}<button className="btn" style={{ fontSize: 10.5 }} onClick={() => genVerify(it.short_id)} disabled={genBusy !== null} title={genBusy !== null ? 'AI 起草中，请稍候…' : 'AI 起草生成验证（10-40 秒）'}><Wand2 size={10} /> {genBusy === id ? 'AI 起草中…' : '生成验证'}</button></td>
               </tr>
             );
           })}
+          </tbody>
         </table>
+        </div>
+        {/* U31：分页器 */}
+        <div className="qa-pager">
+          <span className="dim" style={{ fontSize: 10.5 }}>
+            {total === 0 ? '0 条' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, total)} / ${total} 条`}
+            {filterRisk !== 'all' && '（已按风险过滤）'}{query.trim() && '（已按关键词过滤）'}
+          </span>
+          <span className="sp" />
+          <span className="dim" style={{ fontSize: 10.5 }}>每页</span>
+          <select className="inp qa-pagesize" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+            {PAGE_SIZE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <button className="btn qa-pgbtn" disabled={safePage <= 1} onClick={() => setPage(1)}>«</button>
+          <button className="btn qa-pgbtn" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>上一页</button>
+          <span className="mono dim" style={{ fontSize: 10.5 }}>{safePage} / {pageCount}</span>
+          <button className="btn qa-pgbtn" disabled={safePage >= pageCount} onClick={() => setPage(safePage + 1)}>下一页</button>
+          <button className="btn qa-pgbtn" disabled={safePage >= pageCount} onClick={() => setPage(pageCount)}>»</button>
+        </div>
       </div>
 
       {/* H03 P1: 成功 toast（绿色，3s 自动消失） */}
@@ -285,7 +332,7 @@ export function QaView(props?: {
               </div>
             </div>
             <div className="qa-drawer-foot">
-              <button className="btn primary" onClick={() => genVerify(drawer.short_id)}><Wand2 size={11} /> 生成验证</button>
+              <button className="btn primary" disabled={genBusy !== null} onClick={() => genVerify(drawer.short_id)}><Wand2 size={11} /> {genBusy === String(drawer.short_id) ? 'AI 起草中…（10-40s）' : '生成验证（AI 起草）'}</button>
               <button className="btn" onClick={() => editQa(drawer)}>编辑</button>
               <button className="btn" style={{ color: 'var(--red)' }} onClick={() => delFromDrawer(drawer)}><Trash2 size={11} /> 删除</button>
             </div>

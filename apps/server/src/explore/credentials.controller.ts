@@ -23,13 +23,18 @@ export class CredentialsController {
   @Get('credentials')
   async listCredentials(@Query('projectId') projectId?: string) {
     await this.exploreSvc.ensureReady();
+    // 凭据联动：不带 projectId → 返回全部项目凭据（前端按项目上下文过滤+展示归属列）
     const raw = (projectId ?? '').trim();
-    const pid = raw === '' ? 1 : this.numericId(raw);
-    const r = await this.exploreSvc.pg.query(
-      `SELECT id, short_id, name, role, type, created_at
-       FROM credential WHERE project_id = $1 ORDER BY created_at DESC`,
-      [pid],
-    );
+    const r = raw === ''
+      ? await this.exploreSvc.pg.query(
+        `SELECT id, short_id, project_id, name, role, type, created_at
+         FROM credential ORDER BY created_at DESC`,
+      )
+      : await this.exploreSvc.pg.query(
+        `SELECT id, short_id, project_id, name, role, type, created_at
+         FROM credential WHERE project_id = $1 ORDER BY created_at DESC`,
+        [this.numericId(raw)],
+      );
     return { items: r.rows };
   }
 
@@ -57,7 +62,7 @@ export class CredentialsController {
   @Put('credentials/:id')
   async updCredential(
     @Param('id') id: string,
-    @Body() body: { name?: string; role?: string; username?: string; password?: string },
+    @Body() body: { name?: string; role?: string; username?: string; password?: string; projectId?: number },
   ) {
     await this.exploreSvc.ensureReady();
     const credId = this.numericId(id);
@@ -65,6 +70,7 @@ export class CredentialsController {
     if (exists.rows.length === 0) throw new NotFoundException('not found');
     const sets: string[] = [];
     const vals: unknown[] = [credId];
+    if (body?.projectId != null && Number.isFinite(Number(body.projectId))) { sets.push(`project_id = $${vals.length + 1}`); vals.push(Number(body.projectId)); }
     if (body?.name) { sets.push(`name = $${vals.length + 1}`); vals.push(body.name); }
     if (body?.role) { sets.push(`role = $${vals.length + 1}`); vals.push(body.role); }
     if (body?.username || body?.password) {

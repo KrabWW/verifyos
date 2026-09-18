@@ -1,0 +1,11 @@
+{
+  "name": "live-run-events",
+  "title": "运行中 Run 事件读取",
+  "version": "0.1.0",
+  "description": "挂接 run.event 内存缓存：执行中即可 GET 事件流，排障不用翻 server.log。历史 run 仍走 /api/runs/:id/events（完成后 30 分钟内本插件也可查）",
+  "permission": "auto",
+  "routes": [
+    { "method": "GET", "path": "/runs", "description": "列出当前进程内的活跃 run（含事件数与完成状态）" },
+    { "method": "GET", "path": "/runs/:id/events?since=N", "description": "读取运行中 run 的事件流，since=N 增量轮询；id 支持带/不带 run_ 前缀" }
+  ]
+}

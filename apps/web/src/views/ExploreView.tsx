@@ -8,11 +8,16 @@ interface ExpFinding { level: 'red' | 'amber' | 'yellow'; title: string; detail:
 interface TreeNodeRow { url: string; title: string; depth: number; interactive: number }
 interface IntentRow { name: string; score: number }
 
-export function ExploreView({ seedUrl, onGoMap, onGoQa }: { seedUrl?: string; onGoMap?: () => void; onGoQa?: () => void }) {
+export function ExploreView({ seedUrl, projectShortId, onGoMap, onGoQa }: { seedUrl?: string; projectShortId?: string; onGoMap?: () => void; onGoQa?: () => void }) {
   const [startUrl, setStartUrl] = useState(seedUrl ?? '');
+  // U32：项目环境列表（项目设置里已存的 URL——探索页直接选用，不再每次手填）
+  const [envs, setEnvs] = useState<Array<{ id: number; name: string; url: string; is_production: boolean }>>([]);
   const [intent, setIntent] = useState('员工管理：列表查看、详情查看，关注权限与输入校验');
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('test123');
+  // 凭据联动：凭证库选择（'' = 手动输入；选中项只传 credentialId，明文由后端解密注入）
+  const [credSel, setCredSel] = useState('');
+  const [creds, setCreds] = useState<Array<{ id: number; project_id: number; name: string; role: string }>>([]);
   const [maxDepth, setMaxDepth] = useState('3');
   const [maxActions, setMaxActions] = useState('12');
   const [browserMode, setBrowserMode] = useState<'headless' | 'headful'>('headless');
@@ -59,6 +64,30 @@ export function ExploreView({ seedUrl, onGoMap, onGoQa }: { seedUrl?: string; on
       .sort((a, b) => b.score - a.score).slice(0, 5));
   }).catch(() => undefined);
   useEffect(() => { loadGraph(); }, []);
+
+  // U32：项目环境预填——项目设置里已存的 URL 直接拉过来，探索不再每次手填
+  useEffect(() => {
+    if (!projectShortId) return;
+    fetch('/api/projects/' + projectShortId).then((r) => r.json()).then((d) => {
+      const list: Array<{ id: number; name: string; url: string; is_production: boolean }> = d.environments ?? [];
+      setEnvs(list);
+      // seedUrl（新建项目动线传入）优先；否则取项目第一个环境 URL 预填
+      if (!seedUrl && list.length > 0) setStartUrl(list[0].url);
+    }).catch(() => undefined);
+  }, [projectShortId, seedUrl]);
+
+  // 凭据联动：拉凭证库（当前项目的凭据供探索登录选用）
+  useEffect(() => {
+    if (!projectShortId) return;
+    Promise.all([
+      fetch('/api/projects').then((r) => r.json()),
+      fetch('/api/credentials').then((r) => r.json()),
+    ]).then(([pd, cd]) => {
+      const numId = (pd.projects ?? []).find((p: { id: string | number; short_id?: string }) => String(p.short_id ?? p.id) === projectShortId);
+      if (!numId) return;
+      setCreds((cd.items ?? []).filter((c: { project_id: number }) => Number(c.project_id) === Number((numId as { id: string | number }).id)));
+    }).catch(() => undefined);
+  }, [projectShortId]);
 
   const pushAct = (message: string) => setActivity((prev) => [{ ts: new Date().toTimeString().slice(0, 5), message }, ...prev].slice(0, 40));
 
@@ -108,7 +137,9 @@ export function ExploreView({ seedUrl, onGoMap, onGoQa }: { seedUrl?: string; on
     fetch('/api/explore', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        startUrl: startUrl || undefined, intent, credential: { username, password },
+        startUrl: startUrl || undefined, intent,
+        // 凭据联动：选中凭证库条目只传 credentialId（明文后端解密，不过前端）；手动输入才传明文
+        ...(credSel ? { credentialId: Number(credSel) } : { credential: { username, password } }),
         maxDepth: Number(maxDepth), maxActions: Number(maxActions), headful: browserMode === 'headful',
       }),
     }).catch(() => { setStatus('done'); setMsg('提交失败（网络）'); });
@@ -144,9 +175,35 @@ export function ExploreView({ seedUrl, onGoMap, onGoQa }: { seedUrl?: string; on
       {/* 顶栏：目标 + 参数 + 状态 + 接管控制（原型 exbar） */}
       <div className="exbar">
         <input className="goal" value={intent} onChange={(e) => setIntent(e.target.value)} placeholder="探索目标（业务意图）" />
+        {envs.length > 0 ? (
+          <select
+            className="inp exsel"
+            style={{ maxWidth: 230 }}
+            value={envs.some((e) => e.url === startUrl) ? startUrl : ''}
+            onChange={(e) => setStartUrl(e.target.value)}
+            title="项目环境（项目设置中配置）"
+          >
+            <option value="" disabled>选择项目环境…</option>
+            {envs.map((e) => (
+              <option key={e.id} value={e.url}>{e.name}{e.is_production ? ' · 生产' : ''} — {e.url}</option>
+            ))}
+            <option value="">（手动输入其它 URL）</option>
+          </select>
+        ) : null}
         <input className="inp" style={{ maxWidth: 200 }} value={startUrl} onChange={(e) => setStartUrl(e.target.value)} placeholder="起始 URL（留空=内置演示站）" />
-        <input className="inp" style={{ maxWidth: 90 }} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="用户名" />
-        <input className="inp" style={{ maxWidth: 90 }} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="密码" />
+        {/* 凭据联动：凭证库条目（当前项目）优先；手动输入为兼容兜底 */}
+        {creds.length > 0 && (
+          <select className="inp exsel" style={{ maxWidth: 170 }} value={credSel} onChange={(e) => setCredSel(e.target.value)} title="探索登录使用的凭据（凭证页维护）">
+            <option value="">手动输入凭据</option>
+            {creds.map((c) => <option key={c.id} value={String(c.id)}>{c.name}（{c.role}）</option>)}
+          </select>
+        )}
+        {credSel === '' && (
+          <>
+            <input className="inp" style={{ maxWidth: 90 }} value={username} onChange={(e) => setUsername(e.target.value)} placeholder="用户名" />
+            <input className="inp" style={{ maxWidth: 90 }} type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="密码" />
+          </>
+        )}
         <select className="inp exsel" value={maxDepth} onChange={(e) => setMaxDepth(e.target.value)} title="BFS 探索深度">
           <option value="3">深度 3</option>
           <option value="5">深度 5</option>

@@ -1,0 +1,17 @@
+{
+  "name": "code-forensics",
+  "title": "失败取证 · 代码逆向分析",
+  "version": "0.1.0",
+  "description": "验证步骤多次失败后，自动检索对应代码仓库（GitLab REST / 本地目录），剪取相关代码片段，交给 LLM 逆向分析出根因假设与建议测试步骤；产出 markdown + JSON 取证报告。仓库映射支持 verification 短 id / application 短 id / 目标 host / *，与项目设置里的仓库地址互补。",
+  "permission": "auto",
+  "routes": [
+    { "method": "GET", "path": "/config", "description": "查看自动取证配置（失败次数阈值/自动开关）" },
+    { "method": "POST", "path": "/config", "description": "更新配置 {threshold, autoAnalyze}" },
+    { "method": "GET", "path": "/repos", "description": "列出仓库映射" },
+    { "method": "POST", "path": "/repos", "description": "新增/更新映射 {key, provider: local|gitlab, repo, branch?, tokenEnv?}" },
+    { "method": "DELETE", "path": "/repos/:key", "description": "删除映射" },
+    { "method": "POST", "path": "/analyze", "description": "手动取证 {runId?|verShortId?, force?}——取该验证最近一次失败 run" },
+    { "method": "GET", "path": "/reports", "description": "取证报告列表 ?ver=&run=&limit=" },
+    { "method": "GET", "path": "/report/:runId", "description": "单份报告详情（含 LLM 分析 JSON）" }
+  ]
+}

@@ -45,7 +45,7 @@ export function EditorView({ onOpenRun, focusVerId, onFocusConsumed, onGoQa }: {
     setDryBusy(upto ?? 'all');
     fetch('/api/runs/dry-run', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ steps: draft.steps, ...(upto !== undefined ? { upto } : {}) }),
+      body: JSON.stringify({ steps: draft.steps, actor: draft.actor, ...(upto !== undefined ? { upto } : {}) }),
     })
       .then((r) => r.json())
       .then((d: DryResult & { error?: string }) => {
@@ -139,7 +139,7 @@ export function EditorView({ onOpenRun, focusVerId, onFocusConsumed, onGoQa }: {
   const saveRun = () => {
     save().then((ok) => {
       if (!ok || !draft) return;
-      fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ steps: draft.steps, verificationShortId: draft.short_id }) })
+      fetch('/api/runs', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ steps: draft.steps, verificationShortId: draft.short_id, actor: draft.actor }) })
         .then((r) => r.json())
         .then(() => onOpenRun())
         .catch(() => setMsg('触发失败'));

@@ -9,6 +9,7 @@ import {
   type ReviewReport,
 } from '@verifyos/agent-core';
 import { ExploreService } from './explore/explore.service';
+import { LoginRecipesService } from './explore/login-recipes.service';
 import {
   loadPrConfig,
   mergePrConfig,
@@ -89,6 +90,7 @@ export class WebhooksController {
     private readonly exploreSvc: ExploreService,
     private readonly gitlabClient: GitlabClient,
     private readonly githubClient: GithubClient,
+    private readonly loginRecipes: LoginRecipesService,
   ) {}
 
   /** T9: 用 repo url/path 反查归属 project 及其环境（GitLab: project.http_url/web_url/path_with_namespace；GitHub: repository.*） */
@@ -262,17 +264,90 @@ export class WebhooksController {
     }
 
     // 定向回归步骤：前置确定性登录 + 每条 suggestion 变 assertion+targetRef（UNKNOWN 防假绿生效）
-    const login = DEMO_STEPS[0];
+    // T9+：优先用项目 login_recipe（render 注入真实凭据）；无配方/凭据缺失时回退 DEMO_STEPS[0]（fixture）
+    let loginSteps: StepDef[] = [DEMO_STEPS[0]];
+    if (matched?.projectId) {
+      try {
+        const recipe = await this.loginRecipes.resolveByProject(matched.projectId);
+        if (recipe) {
+          const rendered = await this.loginRecipes.render(recipe, '管理员');
+          if (rendered.credentialInjected && rendered.steps.length > 0) {
+            loginSteps = rendered.steps;
+          }
+        }
+      } catch (err) {
+        console.log('[webhook] 登录配方解析失败，回退 fixture 登录：', err instanceof Error ? err.message.slice(0, 80) : String(err));
+      }
+    }
+    const envBase = matched?.environment?.url?.replace(/\/+$/, '') ?? null;
     const targetSteps: StepDef[] = [
-      login,
-      ...impact.regressionSuggestions.slice(0, 3).map((sug, i) => ({
-        id: `st_reg_${i + 1}`,
-        title: sug.title,
-        kind: 'assertion' as const,
-        assert: { kind: 'url_contains' as const, value: 'list.html' },
-        targetRef: sug.targetUrlHint ?? undefined,
-      })),
+      ...loginSteps,
+      ...impact.regressionSuggestions.slice(0, 3).flatMap((sug, i) => {
+        // ④：targetUrlHint 是真实页面路径（以 / 开头）时——前置确定性导航步直达该页，
+        // targetRef 从裸 host 收紧为具体路径（触达校验更严格，假绿空间更小）
+        // 只有「纯路径」形态的 hint 才用于导航/触达（LLM 可能给出 "/articles → /articles/:slug"
+        // 这类路由描述或含空格说明文本，直接 goto/匹配必然 UNKNOWN）
+        const hintPath = typeof sug.targetUrlHint === 'string' && envBase && /^\/[A-Za-z0-9_\-./]*$/.test(sug.targetUrlHint)
+          ? sug.targetUrlHint
+          : null;
+        return [
+          ...(hintPath
+            ? [{
+                id: `st_nav_${i + 1}`,
+                title: `导航到回归页面 ${hintPath}`,
+                kind: 'deterministic' as const,
+                goto: `${envBase}${hintPath}`,
+              } as StepDef]
+            : []),
+          {
+            id: `st_reg_${i + 1}`,
+            title: sug.title,
+            // T9+：fixture 断言（list.html）只适用于 demo 站点；真实环境改 LLM 驱动回归——
+            // 浏览相关页面核查功能可用性，visitedUrls 触达校验（防假绿）用环境 host/路径
+            kind: 'ai' as const,
+            instruction: `在已登录的站点中验证回归点「${sug.title}」：通过页面导航浏览相关功能页面，确认页面正常渲染、无报错/空白/异常跳转。若一切正常，结束本步骤；若发现问题，描述具体现象。`,
+            targetRef: hintPath ?? (matched?.environment?.url
+              ? (() => { try { return new URL(matched.environment!.url!).host; } catch { return undefined; } })()
+              : undefined),
+          } as StepDef,
+        ];
+      }),
     ];
+
+    // ②：config hardSteps（真实 UI 确定性操作链 + 硬断言）——有真实环境且 config 提供时追加，
+    // 消除纯 AI 判定的假绿空间（{{envUrl}} 占位渲染为项目环境 url）
+    if (envBase && pr.hardSteps.length > 0) {
+      pr.hardSteps.forEach((hs, i) => {
+        const ts = String(Date.now());
+        const render = (u: string) =>
+          u.replace(/\{\{envUrl\}\}/g, envBase).replace(/\{\{ts\}\}/g, ts);
+        const step: StepDef = {
+          id: `st_hard_${i + 1}`,
+          title: hs.title,
+          kind: hs.ai ? 'ai' : 'deterministic',
+          ...(hs.goto ? { goto: render(hs.goto) } : {}),
+          ...(hs.ai ? { instruction: hs.ai } : {}),
+          ...(!hs.ai && hs.actions && hs.actions.length > 0
+            ? {
+                actions: hs.actions
+                  .filter((a) => ['goto', 'fill', 'click', 'press'].includes(a.type))
+                  .map((a) => ({
+                    type: a.type as 'goto' | 'fill' | 'click' | 'press',
+                    ...(a.selector ? { selector: a.selector } : {}),
+                    ...(a.value !== undefined ? { value: render(a.value) } : {}),
+                    ...(a.url ? { url: render(a.url) } : {}),
+                  })),
+              }
+            : {}),
+          ...(hs.assert && ['url_contains', 'url_matches', 'text_visible', 'element_visible'].includes(hs.assert.kind) && hs.assert.value
+            ? { assert: { kind: hs.assert.kind as 'url_contains' | 'url_matches' | 'text_visible' | 'element_visible', value: hs.assert.value } }
+            : {}),
+          ...(hs.targetRef ? { targetRef: hs.targetRef } : {}),
+        };
+        targetSteps.push(step);
+      });
+      console.log(`[webhook] config 硬断言步骤已追加：${pr.hardSteps.length} 步（环境 ${envBase}）`);
+    }
 
     // 高风险 affectedAreas → 自动转 issue 落库（同标题 open 去重）
     const issues: Array<{ title: string; severity: string }> = [];
@@ -290,7 +365,40 @@ export class WebhooksController {
 
     // T9: 反查到项目且带环境 → 用该环境 url 作为 Run 目标；否则回退 fixture
     const startUrl = matched?.environment?.url || this.runs.fixtureEntryUrl;
-    const trigger = await this.runs.trigger({ startUrl, steps: targetSteps, trigger: 'pr' });
+
+    // ① webhook Run 落 verification：为本次 MR 审查创建 verification 对象（回放页左侧步骤定义
+    // 与右侧回放对齐；run.verification_id 不再为 null）。锚点：项目 application + qa_mr_review。
+    let verificationShortId: string | undefined;
+    try {
+      await this.exploreSvc.ensureReady();
+      const projId = matched?.projectId ?? 1;
+      let app = await this.exploreSvc.pg.query(
+        `SELECT id FROM application WHERE project_id = $1 ORDER BY id LIMIT 1`, [projId]);
+      if (app.rows.length === 0) {
+        app = await this.exploreSvc.pg.query(
+          `INSERT INTO application(short_id, project_id, name, type)
+           VALUES ($1, $2, $3, 'web') RETURNING id`,
+          [`app_${Math.random().toString(36).slice(2, 8)}`, projId, matched?.name ?? 'MR 审查目标']);
+      }
+      const appId = app.rows[0].id as number;
+      let qa = await this.exploreSvc.pg.query(
+        `SELECT id FROM qa_point WHERE short_id = 'qa_mr_review' LIMIT 1`);
+      if (qa.rows.length === 0) {
+        qa = await this.exploreSvc.pg.query(
+          `INSERT INTO qa_point(short_id, application_id, title, category, status, confidence, source)
+           VALUES ('qa_mr_review', $1, 'MR 自动审查（webhook 触发）', '正常流程', 'selected', 1.0, '{"webhook":true}'::jsonb)
+           RETURNING id`, [appId]);
+      }
+      verificationShortId = `ver_${Math.random().toString(36).slice(2, 8)}`;
+      await this.exploreSvc.pg.query(
+        `INSERT INTO verification(short_id, qa_point_id, title, actor, steps, status)
+         VALUES ($1, $2, $3, '管理员', $4::jsonb, 'ready')`,
+        [verificationShortId, qa.rows[0].id, `MR 审查：${title}`, JSON.stringify(targetSteps)]);
+    } catch (err) {
+      console.log('[webhook] verification 落库失败（不阻塞 Run）：', err instanceof Error ? err.message.slice(0, 120) : String(err));
+    }
+
+    const trigger = await this.runs.trigger({ startUrl, steps: targetSteps, verificationShortId, trigger: 'pr' });
 
     // F11: webhook 落/更新 MR 记录（列表自动出现；review 存 impact 摘要供详情页渲染）
     if (iid != null) {
@@ -411,6 +519,46 @@ export class WebhooksController {
     } else {
       await this.githubClient.postComment(ctx.githubOwner!, ctx.githubRepo!, ctx.iid!, comment);
     }
+
+    // ③ 禅道回写：MR 标题/分支提到 bug #N 时，审查结论同步为禅道 bug 评论
+    // （ZENTAO_WRITE_URL 指向 85.85 回写 shim：HTTP → zt_action(action='Commented')）
+    const zentaoBugId = this.extractZentaoBugId(ctx);
+    if (zentaoBugId) {
+      const writeUrl = (process.env.ZENTAO_WRITE_URL ?? '').replace(/\/+$/, '');
+      if (!writeUrl) {
+        console.log('[webhook] 检测到禅道 bug #' + zentaoBugId + ' 但未配置 ZENTAO_WRITE_URL，跳过禅道回写');
+        return;
+      }
+      const ztText = [
+        '【VerifyOS MR 自动审查】MR !' + (ctx.iid ?? '?') + '「' + ctx.title + '」回归结论：',
+        '• 门禁判定：' + gate.decision.toUpperCase() + '（' + gate.reason + '，策略 ' + gatePolicy + '）',
+        '• Run 结论：' + outcome.verdict + '，耗时 ' + Math.round(outcome.durationMs / 1000) + 's，LLM 调用 ' + outcome.llmCalls + ' 次',
+        '• 影响分析：' + impact.summary,
+        (process.env.VERIFYOS_BASE_URL ? '• 详情：' + process.env.VERIFYOS_BASE_URL.replace(/\/+$/, '') + '/runs/' + runId : ''),
+        '（本评论由 VerifyOS 机器人自动写入）',
+      ].filter(Boolean).join('\n');
+      try {
+        const resp = await fetch(writeUrl + '/comment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ objectType: 'bug', objectID: zentaoBugId, actor: 'Crab', comment: ztText }),
+        });
+        const bodyTxt = (await resp.text()).slice(0, 200);
+        console.log('[webhook] 禅道回写 bug #' + zentaoBugId + '：HTTP ' + resp.status + ' ' + bodyTxt);
+      } catch (err) {
+        console.log('[webhook] 禅道回写失败（不阻塞）：', err instanceof Error ? err.message.slice(0, 120) : String(err));
+      }
+    }
+  }
+
+  /** ③ 从 MR 标题/分支提取禅道 bug id（bug #5 / #5 / bug5；标题优先于分支） */
+  private extractZentaoBugId(ctx: PrContext): number | null {
+    const patterns = [/bug\s*#?(\d{1,6})\b/i, /#(\d{1,6})\b/];
+    for (const re of patterns) {
+      const m = re.exec(ctx.title) ?? re.exec(ctx.branch);
+      if (m) return Number(m[1]);
+    }
+    return null;
   }
 
   /** 等待 run.done 事件并取回 RunOutcome（触发后立即调用，超时兜底避免悬挂） */
