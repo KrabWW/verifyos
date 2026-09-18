@@ -52,6 +52,8 @@ interface PrContext {
   iid?: number;
   title: string;
   branch: string;
+  /** MR/PR 描述文本（③ 禅道 bug 关联提取也扫这里） */
+  description?: string;
   diffText?: string;
   changedFiles?: string[];
   /** GitLab 项目 id（用于拉 changes / 回写 notes） */
@@ -159,7 +161,8 @@ export class WebhooksController {
       }
     }
 
-    return this.handlePr({ platform: 'gitlab', iid, title, branch, diffText, changedFiles, gitlabProjectId: projectId, body });
+    const description = (attrs.description as string) ?? undefined;
+    return this.handlePr({ platform: 'gitlab', iid, title, branch, description, diffText, changedFiles, gitlabProjectId: projectId, body });
   }
 
   /** T5：GitHub PR webhook → HMAC 鉴权 → 真拉 files → 影响分析 → 定向 Run → 回写评论 */
@@ -551,12 +554,15 @@ export class WebhooksController {
     }
   }
 
-  /** ③ 从 MR 标题/分支提取禅道 bug id（bug #5 / #5 / bug5；标题优先于分支） */
+  /** ③ 从 MR 标题/描述/分支提取禅道 bug id（bug #5 / #5 / bug5；标题→描述→分支） */
   private extractZentaoBugId(ctx: PrContext): number | null {
+    const texts = [ctx.title, ctx.description ?? '', ctx.branch];
     const patterns = [/bug\s*#?(\d{1,6})\b/i, /#(\d{1,6})\b/];
     for (const re of patterns) {
-      const m = re.exec(ctx.title) ?? re.exec(ctx.branch);
-      if (m) return Number(m[1]);
+      for (const t of texts) {
+        const m = re.exec(t);
+        if (m) return Number(m[1]);
+      }
     }
     return null;
   }
