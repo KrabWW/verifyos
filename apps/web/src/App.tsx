@@ -9,7 +9,7 @@ import {
   Terminal, Network, Save, Ban,
 } from 'lucide-react';
 import type { RunEvent } from '@verifyos/shared';
-import { verdictMeta, type Route, type DoneSummary } from './shared';
+import { verdictMeta, parseDeepLinkHash, replaceHash, type Route, type DoneSummary } from './shared';
 import { PluginPageView } from './views/PluginPageView';
 import { DashboardView } from './views/DashboardView';
 import { HistoryView } from './views/HistoryView';
@@ -179,8 +179,15 @@ function lineBody(e: RunEvent): { icon: React.ReactNode; text: string; cls: stri
 }
 
 export function App() {
-  const [route, setRoute] = useState<Route>('run');
-  const [replayRunId, setReplayRunId] = useState<string | null>(null);
+  // G2a：证据深链——启动解析 location.hash：'#/pr/<iid>' → PR 视图（PrView 自动选中）；'#/runs/<runId>' → 执行页
+  // 直接回放该 Run（初始化 replayRunId，与执行历史行点击走同一条回放通道）；无法解析/无 hash 保持默认 route='run'
+  const deepLink = useMemo(() => parseDeepLinkHash(window.location.hash), []);
+  const [route, setRoute] = useState<Route>(deepLink.prIid != null ? 'pr' : 'run');
+  const [replayRunId, setReplayRunId] = useState<string | null>(deepLink.runId);
+  // G2a：PR 选中态——PrView 上报实际选中 iid 驱动 hash 回写；prDeepLinkConsumed 保证深链只在入口消费一次
+  //（切走再切回 PR 视图仍恢复列表态，与旧行为一致）
+  const [prSelIid, setPrSelIid] = useState<number | null>(deepLink.prIid);
+  const prDeepLinkConsumed = useRef(false);
   // U21：编辑器聚焦目标（验证 short_id）——QA 点「编辑/生成验证」跳编辑器时预填选中
   const [editorFocus, setEditorFocus] = useState<string | null>(null);
   // U22：当前 Run 关联验证 short_id（执行页 chip 真关联）+ QA 点聚焦（编辑器反向跳 QA 自动开抽屉）
@@ -424,6 +431,14 @@ export function App() {
       .catch(() => undefined);
   }, [replayRunId]);
 
+  // G2a：hash 回写——history.replaceState 不产生历史记录：pr 选中 → '#/pr/<iid>'；回放 Run → '#/runs/<runId>'；
+  // 其他视图/未选中/退出回放 → 清空。入口深链在初始化时写回同值（幂等），不会覆盖用户入口 hash。
+  useEffect(() => {
+    if (route === 'pr' && prSelIid != null) replaceHash(`#/pr/${prSelIid}`);
+    else if (route === 'run' && replayRunId) replaceHash(`#/runs/${replayRunId}`);
+    else replaceHash(null);
+  }, [route, prSelIid, replayRunId]);
+
   const { cards, banner } = useMemo(() => groupEvents(events), [events]);
   const completedBanner = banner.find((e) => e.type === 'run.completed') as unknown as { verdict?: string } | undefined;
 
@@ -593,7 +608,8 @@ export function App() {
 
         {route === 'dashboard' && <DashboardView onOpenRun={(runId) => { if (runId) setReplayRunId(runId); setRoute('run'); }} onGo={(r) => setRoute(r)} />}
         {route === 'history' && <HistoryView onReplay={(id) => { setReplayRunId(id); setRoute('run'); }} onNew={() => setRoute('editor')} />}
-        {route === 'pr' && <PrView />}
+        {/* G2a：initialIid 仅在入口深链未消费时传入；onSelectIid 上报实际选中驱动 hash 回写 */}
+        {route === 'pr' && <PrView initialIid={prDeepLinkConsumed.current ? undefined : (deepLink.prIid ?? undefined)} onSelectIid={(iid) => { prDeepLinkConsumed.current = true; setPrSelIid(iid); }} />}
         {route === 'explore' && <ExploreView seedUrl={exploreSeed} key={exploreSeed} projectShortId={curProject?.id ?? ''} onGoMap={() => setRoute('map')} onGoQa={() => setRoute('qa')} />}
         {route === 'import' && <ImportView onGoQa={() => setRoute('qa')} onGoChat={() => setRoute('chat')} />}
         {route === 'welcome' && <WelcomeView onGoExplore={(u) => { setExploreSeed(u); setRoute('explore'); }} onGo={(r) => setRoute(r)} />}

@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { timingSafeEqual } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import * as path from 'node:path';
 import { CredentialCrypto } from '@verifyos/agent-core';
 import { ExploreService } from '../explore/explore.service';
 
@@ -132,6 +134,49 @@ export class GitlabClient {
       return { ok: true, id: json?.id != null ? String(json.id) : undefined };
     } catch (err) {
       console.error('[gitlab] 评论回写异常（不阻塞）：', err instanceof Error ? err.message : err);
+      return { ok: false };
+    }
+  }
+
+  /**
+   * 上传证据文件（截图/trace/HAR）：POST /projects/:project_id/uploads（multipart，G2b）。
+   * GitLab 返回相对 url（/uploads/<hash>/<file>），拼实例 origin（apiUrl 去掉 /api/v4 后缀）得绝对地址；
+   * 失败只留痕返回 ok:false（不阻塞评论链路）。
+   */
+  async uploadFile(projectId: number | string, filePath: string, altText?: string): Promise<{ ok: boolean; markdown?: string; url?: string }> {
+    const cfg = await this.readConfig();
+    if (!cfg.token) {
+      console.log('[gitlab] 未配置 GITLAB_TOKEN，跳过证据上传');
+      return { ok: false };
+    }
+    try {
+      const buf = await readFile(filePath);
+      const filename = path.basename(filePath);
+      const form = new FormData();
+      form.append('file', new Blob([new Uint8Array(buf)]), filename);
+      const url = `${cfg.apiUrl.replace(/\/+$/, '')}/projects/${encodeURIComponent(String(projectId))}/uploads`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'PRIVATE-TOKEN': cfg.token },
+        body: form,
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!res.ok) {
+        console.error(`[gitlab] uploads API 返回 HTTP ${res.status}：`, (await res.text().catch(() => '')).slice(0, 300));
+        return { ok: false };
+      }
+      const json = (await res.json().catch(() => null)) as { url?: string; alt?: string } | null;
+      if (!json?.url) {
+        console.error('[gitlab] uploads API 响应缺 url 字段');
+        return { ok: false };
+      }
+      const origin = cfg.apiUrl.replace(/\/+$/, '').replace(/\/api\/v\d+$/, '');
+      const abs = `${origin}${json.url}`;
+      const alt = altText ?? filename;
+      console.log(`[gitlab] 证据上传成功：${filename} → ${abs}`);
+      return { ok: true, url: abs, markdown: `![${alt}](${abs})` };
+    } catch (err) {
+      console.error('[gitlab] 证据上传异常（不阻塞）：', err instanceof Error ? err.message : err);
       return { ok: false };
     }
   }

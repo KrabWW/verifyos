@@ -32,9 +32,27 @@ import { mergeGate, type GateDecision } from '@verifyos/agent-core';
 /** 门禁策略：fail_block=失败阻止/未知警告；strict=失败与未知都阻止；warn_only=永不阻止仅警告 */
 export type GatePolicy = 'fail_block' | 'strict' | 'warn_only';
 
+/** G1 门禁模式：blocking=断言失败阻止合并（现状默认）；reporting=只评论不拦合并（ℹ️ 非阻塞标注） */
+export type GateMode = 'blocking' | 'reporting';
+
+/** G1 分档计划：smoke=PR 冒烟档（默认）；full=全量回归档 */
+export type PlanTier = 'smoke' | 'full';
+
+/** G1 升档 full 的触发条件：分支 * 通配（如 release/*）或 MR label 命中 */
+export interface FullTriggers {
+  branches: string[];
+  labels: string[];
+}
+
 export interface PrConfig {
   /** 门禁策略标识 */
   gate: GatePolicy;
+  /** G1 门禁模式（默认 blocking；reporting 时门禁结果只影响评论文本不拦截合并） */
+  gateMode: GateMode;
+  /** G1 分档计划（默认 smoke；webhook 阶段用 resolvePlan 按 fullTriggers 动态判定） */
+  plan: PlanTier;
+  /** G1 升档 full 的触发条件（分支通配 / MR label） */
+  fullTriggers: FullTriggers;
   /** 触发分支规则（glob，空数组 = 不限分支） */
   branches: string[];
   /** 触发文件规则（glob，空数组 = 不限文件） */
@@ -73,6 +91,9 @@ export interface VerifyosConfig {
 export function defaultPrConfig(): PrConfig {
   return {
     gate: 'fail_block',
+    gateMode: 'blocking',
+    plan: 'smoke',
+    fullTriggers: { branches: ['release/*'], labels: [] },
     branches: [],
     files: [],
     verifications: [],
@@ -242,6 +263,15 @@ function normalizePr(raw: unknown): PrConfig {
   const o = asRecord(raw);
   const gate = String(o.gate ?? '') as GatePolicy;
   if (gate === 'fail_block' || gate === 'strict' || gate === 'warn_only') base.gate = gate;
+  const gateMode = String(o.gateMode ?? '') as GateMode;
+  if (gateMode === 'blocking' || gateMode === 'reporting') base.gateMode = gateMode;
+  const plan = String(o.plan ?? '') as PlanTier;
+  if (plan === 'smoke' || plan === 'full') base.plan = plan;
+  // fullTriggers：极简解析器下保持 {branches: string[], labels: string[]} 简单数组结构
+  if (o.fullTriggers != null && typeof o.fullTriggers === 'object' && !Array.isArray(o.fullTriggers)) {
+    const ft = asRecord(o.fullTriggers);
+    base.fullTriggers = { branches: asStringArray(ft.branches), labels: asStringArray(ft.labels) };
+  }
   base.branches = asStringArray(o.branches);
   base.files = asStringArray(o.files);
   base.verifications = asStringArray(o.verifications);
@@ -328,6 +358,9 @@ export function loadPrConfig(startDir: string): { pr: PrConfig; source: string |
 export function mergePrConfig(base: PrConfig, ...layers: Array<Partial<PrConfig> | null | undefined>): PrConfig {
   const out: PrConfig = {
     gate: base.gate,
+    gateMode: base.gateMode,
+    plan: base.plan,
+    fullTriggers: { branches: [...base.fullTriggers.branches], labels: [...base.fullTriggers.labels] },
     branches: [...base.branches],
     files: [...base.files],
     verifications: [...base.verifications],
@@ -336,6 +369,11 @@ export function mergePrConfig(base: PrConfig, ...layers: Array<Partial<PrConfig>
   for (const layer of layers) {
     if (!layer) continue;
     if (layer.gate !== undefined) out.gate = layer.gate;
+    if (layer.gateMode !== undefined) out.gateMode = layer.gateMode;
+    if (layer.plan !== undefined) out.plan = layer.plan;
+    if (layer.fullTriggers !== undefined) {
+      out.fullTriggers = { branches: [...layer.fullTriggers.branches], labels: [...layer.fullTriggers.labels] };
+    }
     if (layer.branches !== undefined) out.branches = [...layer.branches];
     if (layer.files !== undefined) out.files = [...layer.files];
     if (layer.verifications !== undefined) out.verifications = [...layer.verifications];
@@ -355,6 +393,14 @@ export function extractPrLayers(body: Record<string, unknown>): {
     const out: Partial<PrConfig> = {};
     const gate = String(o.gate ?? '') as GatePolicy;
     if (gate === 'fail_block' || gate === 'strict' || gate === 'warn_only') out.gate = gate;
+    const gateMode = String(o.gateMode ?? '') as GateMode;
+    if (gateMode === 'blocking' || gateMode === 'reporting') out.gateMode = gateMode;
+    const plan = String(o.plan ?? '') as PlanTier;
+    if (plan === 'smoke' || plan === 'full') out.plan = plan;
+    if (o.fullTriggers != null && typeof o.fullTriggers === 'object' && !Array.isArray(o.fullTriggers)) {
+      const ft = asRecord(o.fullTriggers);
+      out.fullTriggers = { branches: asStringArray(ft.branches), labels: asStringArray(ft.labels) };
+    }
     if (Array.isArray(o.branches)) out.branches = asStringArray(o.branches);
     if (Array.isArray(o.files)) out.files = asStringArray(o.files);
     if (Array.isArray(o.verifications)) out.verifications = asStringArray(o.verifications);
@@ -406,6 +452,21 @@ export function shouldTriggerPr(
     return { trigger: false, reason: `变更文件未命中 files 触发规则 ${JSON.stringify(pr.files)}` };
   }
   return { trigger: true, reason: `branches/files 触发规则命中，按 config 定向回归` };
+}
+
+// ---------- G1：分档计划 ----------
+
+/**
+ * G1 分档计划判定（纯函数）：
+ * - source branch 命中任一 fullTriggers.branches（* 通配，globMatch）→ 'full'
+ * - 任一 MR label 命中 fullTriggers.labels（精确相等）→ 'full'
+ * - 都未命中 → 'smoke'（PR 冒烟档，默认）
+ */
+export function resolvePlan(pr: PrConfig, branch: string, labels: string[]): PlanTier {
+  const ft = pr.fullTriggers ?? defaultPrConfig().fullTriggers;
+  if (ft.branches.some((p) => globMatch(p, branch))) return 'full';
+  if ((labels ?? []).some((l) => ft.labels.includes(l))) return 'full';
+  return 'smoke';
 }
 
 // ---------- 门禁策略（对齐 agent-core mergeGate） ----------

@@ -4,10 +4,14 @@ import {
   analyzeImpact,
   buildMrComment,
   buildTestRuns,
+  dedupeFindings,
+  annotateCoverage,
+  type LiveFinding,
   type StepDef,
   type RunOutcome,
   type ReviewReport,
 } from '@verifyos/agent-core';
+import * as nodePath from 'node:path';
 import { ExploreService } from './explore/explore.service';
 import { LoginRecipesService } from './explore/login-recipes.service';
 import {
@@ -16,7 +20,10 @@ import {
   extractPrLayers,
   shouldTriggerPr,
   applyGate,
+  resolvePlan,
   type GatePolicy,
+  type GateMode,
+  type PlanTier,
 } from './pr/pr-config';
 import { GitlabClient } from './connectors/gitlab.client';
 import { GithubClient } from './connectors/github.client';
@@ -34,6 +41,22 @@ function repoPath(u: unknown): string {
 /** 请求头可能是 string | string[]（express 的 IncomingHttpHeaders），统一取首个值 */
 function firstHeader(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
+}
+
+/** G1：从 webhook payload 的 labels 数组提取标题（GitLab 元素形如 {title}，GitHub 形如 {name}；裸字符串也兼容） */
+function labelTitles(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out = raw
+    .map((x) => {
+      if (x && typeof x === 'object') {
+        const o = x as Record<string, unknown>;
+        const t = o.title ?? o.name;
+        return typeof t === 'string' && t.length > 0 ? t : null;
+      }
+      return typeof x === 'string' && x.length > 0 ? x : null;
+    })
+    .filter((x): x is string => x !== null);
+  return out;
 }
 
 interface MatchedProject {
@@ -56,6 +79,8 @@ interface PrContext {
   description?: string;
   diffText?: string;
   changedFiles?: string[];
+  /** MR/PR label 标题数组（GitLab labels[].title / GitHub labels[].name；G1 分档计划用） */
+  labels?: string[];
   /** GitLab 项目 id（用于拉 changes / 回写 notes） */
   gitlabProjectId?: number | string;
   /** GitHub owner / repo（用于拉 files / 回写 issue comment） */
@@ -162,7 +187,10 @@ export class WebhooksController {
     }
 
     const description = (attrs.description as string) ?? undefined;
-    return this.handlePr({ platform: 'gitlab', iid, title, branch, description, diffText, changedFiles, gitlabProjectId: projectId, body });
+    // G1：label 标题（GitLab MR webhook 的 labels 在 body 顶层，元素 {title}；兼容 attrs.labels）
+    const labels = labelTitles(body.labels) ?? labelTitles(attrs.labels) ?? [];
+    if (labels.length > 0) console.log(`[webhook] MR labels: ${labels.join(', ')}`);
+    return this.handlePr({ platform: 'gitlab', iid, title, branch, description, diffText, changedFiles, labels, gitlabProjectId: projectId, body });
   }
 
   /** T5：GitHub PR webhook → HMAC 鉴权 → 真拉 files → 影响分析 → 定向 Run → 回写评论 */
@@ -206,7 +234,10 @@ export class WebhooksController {
       }
     }
 
-    return this.handlePr({ platform: 'github', iid: number, title, branch, diffText, changedFiles, githubOwner: owner, githubRepo: repoName, body });
+    // G1：label 标题（GitHub PR webhook 的 pr.labels 元素形如 {name}）
+    const labels = labelTitles(pr.labels) ?? [];
+    if (labels.length > 0) console.log(`[webhook] PR labels: ${labels.join(', ')}`);
+    return this.handlePr({ platform: 'github', iid: number, title, branch, diffText, changedFiles, labels, githubOwner: owner, githubRepo: repoName, body });
   }
 
   /** 双平台共享主链路：三层配置 → 触发规则 → 影响分析 → 定向 Run → issue/mr 落库 → 异步回写评论 */
@@ -220,6 +251,9 @@ export class WebhooksController {
     console.log(`[webhook] 按 config 门禁策略=${pr.gate}${configSource ? `（${configSource}）` : '（未找到 config.yaml，用默认）'}`);
     console.log(`[webhook] 门禁阈值：fail→${applyGate(pr.gate, 'fail').decision} · unknown→${applyGate(pr.gate, 'unknown').decision}`);
     if (pr.verifications.length > 0) console.log(`[webhook] config 指定验证=${pr.verifications.join(', ')}`);
+    // G1：分档计划判定（分支通配 / label 命中 fullTriggers → full，否则 smoke）
+    const plan = resolvePlan(pr, branch, ctx.labels ?? []);
+    console.log(`[webhook] 分档计划=${plan}（gateMode=${pr.gateMode}${plan === 'full' ? `，命中 fullTriggers ${JSON.stringify(pr.fullTriggers)}` : '，默认冒烟档'}）`);
     if (override.gate || override.branches || override.files || override.verifications) {
       console.log('[webhook] 三层 merge：单次 Run override 已覆盖项目默认（override 最高优先级生效）');
     }
@@ -417,14 +451,16 @@ export class WebhooksController {
           verdict: 'unknown',
           checkedAt: '刚刚 · webhook 自动触发（preview 就绪）',
           summary: impact.summary,
-          areas: impact.affectedAreas.map((a) => ({
+          // G3：影响面 × 回归步骤 覆盖标注（coveredBy=step#N / uncoveredReason）
+          areas: annotateCoverage(impact.affectedAreas.map((a) => ({
             title: a.area, severity: a.risk === 'high' ? 'high' : 'info',
             related: a.risk === 'high' ? '本 PR 相关' : null, hint: a.reason, action: null,
-          })),
-          tests: impact.regressionSuggestions.slice(0, 5).map((s, i) => ({
+          })), targetSteps.map((s) => ({ text: `${s.title} ${s.instruction ?? ''}`, kind: s.kind }))),
+          // G5：分档引擎——full 档回归上限 8（smoke 5）
+          tests: impact.regressionSuggestions.slice(0, plan === 'full' ? 8 : 5).map((s, i) => ({
             title: s.title, status: 'unknown', source: `webhook 定向回归 #${i + 1}`, durationSec: 0,
           })),
-          bot: `webhook 触发：${impact.regressionSuggestions.length} 条定向回归建议已注入 Run 执行（防假绿 targetRef 生效）。`,
+          bot: `webhook 触发（${plan === 'full' ? 'Full 全量档：回归上限 8 · 探索深度 ×2' : 'Smoke 冒烟档'}）：${impact.regressionSuggestions.length} 条定向回归建议已注入 Run 执行（防假绿 targetRef 生效）。`,
         })],
       );
 
@@ -438,18 +474,21 @@ export class WebhooksController {
           ).catch(() => undefined);
           return;
         }
-        const findings: Array<{ level: string; title: string; detail: string }> = [];
+        const findings: LiveFinding[] = [];
         try {
           const done = await this.exploreSvc.explore(
-            { startUrl, intent: `PR !${iid} 动态探索（探索式回归）`, maxActions: 5, credential: { username: 'admin', password: 'test123' } },
+            // G5：full 档探索深度 ×2（maxActions 10 vs smoke 5）
+            { startUrl, intent: `PR !${iid} 动态探索（探索式回归）`, maxActions: plan === 'full' ? 10 : 5, credential: { username: 'admin', password: 'test123' } },
             (e) => { if (e.finding) findings.push(e.finding); },
           );
+          // G3：指纹去重——相似发现合并（occurrences+1、confidence+0.15），探索噪音不重复刷屏
+          const ded = dedupeFindings(findings);
           const cur = await this.exploreSvc.pg.query(`SELECT review FROM mr WHERE iid = $1 LIMIT 1`, [iid]);
           if (cur.rows.length > 0) {
             const review = (cur.rows[0].review ?? {}) as Record<string, unknown>;
-            review.dynamicFindings = findings.slice(0, 6);
-            review.dynamicStats = { pages: done.pages ?? 0, edges: done.edges ?? 0, qaCount: done.qaCount ?? 0 };
-            review.bot = `${(review.bot as string) ?? ''} 动态探索完成：${done.pages ?? 0} 页 · ${done.edges ?? 0} 边 · 新增 ${done.qaCount ?? 0} 条 QA 候选 · ${findings.length} 条新发现。`;
+            review.dynamicFindings = ded.kept.slice(0, 6);
+            review.dynamicStats = { pages: done.pages ?? 0, edges: done.edges ?? 0, qaCount: done.qaCount ?? 0, rawCount: findings.length, merged: ded.mergedCount };
+            review.bot = `${(review.bot as string) ?? ''} 动态探索完成：${done.pages ?? 0} 页 · ${done.edges ?? 0} 边 · 新增 ${done.qaCount ?? 0} 条 QA 候选 · ${findings.length} 条新发现（去重后 ${ded.kept.length} 条，合并 ${ded.mergedCount} 条）。`;
             await this.exploreSvc.pg.query(`UPDATE mr SET review = $2::jsonb, updated_at = now() WHERE iid = $1`, [iid, JSON.stringify(review)]);
           }
         } catch (err) {
@@ -458,7 +497,7 @@ export class WebhooksController {
       })();
 
       // T5: 回归完成后回写平台评论（异步，失败只留痕不阻塞 webhook）
-      void this.writeBackComment(ctx, trigger.runId, impact, pr.gate, targetSteps).catch((err) => {
+      void this.writeBackComment(ctx, trigger.runId, impact, pr.gate, targetSteps, pr.gateMode, plan).catch((err) => {
         console.log('[webhook] 评论回写异常（不阻塞）：', err instanceof Error ? err.message.slice(0, 120) : err);
       });
     }
@@ -468,6 +507,8 @@ export class WebhooksController {
       platform,
       mr: { iid, branch, title },
       gate: pr.gate,
+      gateMode: pr.gateMode,
+      plan,
       triggerRule: { branches: pr.branches, files: pr.files },
       issuesCreated: issues.length > 0 ? issues : undefined,
       impact: {
@@ -485,13 +526,15 @@ export class WebhooksController {
     };
   }
 
-  /** T5：等待定向回归 Run 完成后，用 buildMrComment 生成三段式评论并回写平台 */
+  /** T5：等待定向回归 Run 完成后，用 buildMrComment 生成三段式评论并回写平台（G1：带 gateMode + plan） */
   private async writeBackComment(
     ctx: PrContext,
     runId: string,
     impact: Awaited<ReturnType<typeof analyzeImpact>>,
     gatePolicy: GatePolicy,
     targetSteps: StepDef[],
+    gateMode: GateMode = 'blocking',
+    plan: PlanTier = 'smoke',
   ): Promise<void> {
     if (ctx.platform === 'gitlab' && ctx.gitlabProjectId == null) {
       console.log('[webhook] 缺少 GitLab project_id，跳过 MR 评论回写');
@@ -509,14 +552,52 @@ export class WebhooksController {
     const report = buildReviewFromImpact(impact, outcome);
     const testRuns = buildTestRuns(outcome, targetSteps);
     const gate = applyGate(gatePolicy, outcome.verdict);
-    const comment = buildMrComment({
+
+    // 回填 MR review：触发时写入的是 verdict:'unknown' 占位，Run 完成后把真实结论同步回列表
+    // （jsonb 合并保留影响面/动态探索字段；iid 定位与触发时 INSERT ON CONFLICT(iid) 一致）
+    if (ctx.iid != null) {
+      const ztBug = this.extractZentaoBugId(ctx);
+      await this.exploreSvc.pg.query(
+        `UPDATE mr SET review = review || $2::jsonb, running = false, run_id = $3, updated_at = now() WHERE iid = $1`,
+        [ctx.iid, JSON.stringify({
+          verdict: outcome.verdict,
+          checkedAt: 'Run ' + runId.slice(0, 12) + ' · ' + Math.round(outcome.durationMs / 1000) + 's',
+          // G1：门禁模式与分档计划落库（列表/详情页可读）
+          gateMode,
+          plan,
+          tests: testRuns.map((t) => ({ title: t.title, status: t.verdict, source: t.kind === 'ai' ? 'LLM 定向回归' : t.kind === 'assertion' ? '断言步骤' : '确定性步骤', durationSec: Math.round((t.durationMs ?? 0) / 1000) })),
+          // G1：reporting 非阻塞模式 → gate 结果只影响文本（ℹ️ 提示），不拦截合并
+          bot: (gateMode === 'reporting'
+            ? 'ℹ️ 非阻塞模式（reporting）· 门禁 ' + gate.decision.toUpperCase() + ' 仅提示不拦截 · '
+            : gate.decision === 'allow' ? '✓ 门禁 ALLOW · ' : '⛔ 门禁 BLOCK · ') + 'Run ' + outcome.verdict + '，结论已回写 GitLab' + (ztBug ? ' 与禅道 bug #' + ztBug : '') + '。',
+        }), runId],
+      ).catch((err: unknown) => console.log('[webhook] MR review 回填失败（不阻塞）：', err instanceof Error ? err.message.slice(0, 120) : err));
+    }
+    let comment = buildMrComment({
       prTitle: ctx.title,
       report,
       outcome,
       testRuns,
       gate,
       evidenceBase: (process.env.VERIFYOS_BASE_URL ?? '').replace(/\/+$/, '') || undefined,
+      // G1：非阻塞标注 + 分档计划（评论文本随 gateMode/plan 变化，不影响发送）
+      opts: { gateMode, plan },
     });
+    // G2b：报告深链（WEB_BASE_URL/#/pr/<iid>，直达站内 PR 验证详情）+ 证据截图内嵌（上传失败降级纯文字，不阻塞回写）
+    const webBase = (process.env.WEB_BASE_URL ?? '').replace(/\/+$/, '');
+    if (webBase && ctx.iid != null) {
+      comment += `\n---\n🗂 **[在 VerifyOS 查看完整报告（回放 / 证据 / 步骤明细）](${webBase}/#/pr/${ctx.iid})**`;
+    }
+    const shotKeys = (outcome.evidenceKeys ?? []).filter((k) => k.includes('screenshot')).slice(-2);
+    if (ctx.platform === 'gitlab' && ctx.gitlabProjectId != null && shotKeys.length > 0) {
+      const baseDir = nodePath.resolve(process.cwd(), '../../out/evidence');
+      const marks: string[] = [];
+      for (const k of shotKeys) {
+        const up = await this.gitlabClient.uploadFile(ctx.gitlabProjectId, nodePath.resolve(baseDir, k), `验证证据 ${String(k.split('/').pop() ?? k)}`);
+        if (up.ok && up.markdown) marks.push(up.markdown);
+      }
+      if (marks.length > 0) comment += `\n### 关键证据截图\n${marks.join('\n')}\n`;
+    }
     if (ctx.platform === 'gitlab') {
       await this.gitlabClient.postComment(ctx.gitlabProjectId!, ctx.iid!, comment);
     } else {

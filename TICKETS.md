@@ -98,5 +98,22 @@
 | F16 | 新建项目路由 | 侧栏「新建项目」navitem（当前无此路由）→ 接 F1 欢迎页 | 随 F1 | P1 |
 | F17 | 执行页事件流按 Run 重置（F6 实测发现） | API 触发的 run（编辑器/QA 点/Chat）不清空旧事件流 → banner/Triage 残留上一 Run 判定（f6-run-pass.png 实证） | socket run.started 时 setEvents([]) 或按 runId 分段 | P1 |
 
+## Epic G · PR 验证原型升级（2026-09-18，源自 prototype-pr-review.html + qa.tech 对标）
+
+> 目标：把 PR 验证模块升级到对标 qa.tech 的完整形态——门禁可配、分档计划、证据进 MR 评论、探索发现闭环。
+> 切片原则：每个工单独立可验收；webhooks.controller.ts 同一时间只归一个工单所有（防并行冲突）。
+
+| # | 工单 | 范围 | 验收标准 | 依赖 | 状态 |
+|---|---|---|---|---|---|
+| G1 | 门禁模式 + 分档计划配置 | pr-config.ts：gateMode 'blocking'|'reporting'（默认 blocking）+ plan 'smoke'|'full' + fullTriggers:{branches:['release/*'],labels:[]}；normalizePr/mergePrConfig/loadPrConfig/extractPrLayers 同步；GitLab payload 提取 labels 进 PrContext；webhooks.controller.ts writeBackComment 按 gateMode 出评论（reporting→「非阻塞」标注+不拦合并）并落 mr.review.gateMode/plan；agent-core review.ts buildMrComment 加 gateMode 可选参；verifyos.config.yaml 补示例键 | cfgcheck 风格脚本断言 merge 产出 gateMode/plan/fullTriggers + 分支/label→full 档解析正确；agent-core+server build 过；8082 health ok（杀-构建-再杀-watchdog 拉起流程） | — | 🚧 |
+| G2a | 证据深链·前端 hash 路由 | App.tsx：启动解析 location.hash（#/pr/<iid>→route 'pr' 并选中该 MR；#/runs/<runId>→route 'run' 回放该 run，语义对齐 HistoryView 行点击回放）；选中变化时回写 hash（history.replaceState）；PrView/HistoryView 接初始选中 props | 刷新 http://localhost:5173/#/pr/7 直达 MR !7 详情、#/runs/run_xxx 直达回放；web tsc --noEmit 过 | — | 🚧 |
+| G2b | 证据深链·MR 评论内嵌截图+报告链接 | webhooks.controller.ts writeBackComment：从 run.output.evidenceKeys 选 ≤2 张关键截图经 GitLab uploads API（POST /projects/:id/uploads multipart）得 markdown 链接嵌入评论；评论尾加 [查看完整报告](WEB_BASE_URL/#/pr/<iid>)；.env 补 WEB_BASE_URL（默认 http://localhost:5173） | 真实 push 触发后 MR 评论含 2 张图片链接+报告深链；浏览器打开深链直达 MR 详情 | G1（同文件顺序）、G2a | ⬜ |
+| G3 | 发现去重+降级+覆盖标注（纯模块，不接线） | agent-core 新文件 findings-dedupe.ts（指纹=归一化标题::关键词，与 qa_point 标题比对→相似则置信度合并升级不新建；kind 分 defect/risk/navigational，URL 启发式 /login /register 密码表单→navigational 折叠）+ area-coverage.ts（review.areas × targetSteps 关键词/文件匹配→每 area 得 coveredBy=step#N 或 uncovered）+ 冒烟自检脚本（纯函数全路径断言） | 自检脚本全过；npx tsc --noEmit -p packages/agent-core 过；不改任何既有文件 | — | 🚧 |
+| G4 | PrView 原型升级 | 按 prototype-pr-review.html 重排 MR 详情：门禁模式 chip + 三档计划条（smoke/full/post-merge，full 显示触发条件）+ 结论横幅+证据条（截图缩略图/trace/HAR，数据源 run.output.evidenceKeys→既有 evidence 端点）+ AREAS 覆盖徽章（coveredBy→「✓已回归覆盖·step#N」/uncovered→「未覆盖」+转QA点按钮占位）+ 动态探索新发现卡（kind chip + 去重标注「已存在相似 QA 点」+ navigational 折叠「N 条已内部消化」）+ TESTS RUN 每步证据链接 + Bot 卡（GitLab/禅道深链+回写状态 chip） | 浏览器截图与原型对照结构齐全；数据全部来自真实 mr.review/run（无 mock）；web tsc 过 | G1,G2a,G3（含 G3 接线进 controller mini-explore 块） | ⬜ |
+| G5 | Full 档执行引擎（P1） | plan=full → 触发时批量生成/串行执行该环境 QA 点 verification（复用 E6 QA→verification 语义）+ 聚合报告写 mr.review | 手动构造 release/* 分支 MR → full 档聚合报告落库 | G1,G4 | ⬜ |
+| G6 | 端到端集成验收 | 全量 build（agent-core+server）+ 重启 server + 真实空 commit push 触发 + 三端核对：GitLab 评论（截图+深链+门禁标注）/禅道 bug#5 回写不回归/UI 新版详情页 | e2e-check.py 全绿 + 新版 UI 截图存 shots/ + MR 评论截图存档 | G1,G2b,G3,G4 | ⬜ |
+
+**G 系实施顺序**：G1+G2a+G3 并行（文件集不相交）→ G2b、G3 接线 → G4 → G5(P1) → G6。
+
 **建议实施顺序**（按 P0 → P1）：
 1. F15 插件屏（纯渲染，1 轮）→ 2. F5 QA 批量生成（引擎复用，1 轮）→ 3. F8 Triage 完整屏（1-2 轮）→ 4. F6 验证编辑器（2 轮）→ 5. F11 PR 详情（2 轮）→ 6. F4 探索可视化（2-3 轮，接管最重）→ 7. 其余 P1 零碎 → 8. F3 需求导入/F2 富卡片（P2）

@@ -3,6 +3,15 @@
 # 注意：express-realworld 校验 description 必填（漏填 → POST /api/articles 422）
 pr:
   gate: fail_block
+  # G1 门禁模式：blocking=断言失败阻止合并（默认）；reporting=只评论不拦合并（评论标注「ℹ️ 非阻塞」）
+  gateMode: blocking
+  # G1 分档计划：smoke=PR 冒烟档（默认）；命中 fullTriggers 自动升 full（全量回归档）
+  plan: smoke
+  # G1 升档 full 触发条件：分支 * 通配（release/* 匹配 release/1.2 等）或 MR label 精确命中
+  fullTriggers:
+    branches:
+      - release/*
+    labels: []
   hardSteps:
     - title: 硬断言：真创建纯中文标题文章并断言 slug 非空格式
       goto: "{{envUrl}}/editor"

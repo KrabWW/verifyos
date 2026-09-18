@@ -15,3 +15,5 @@ export * from './review.js';
 export * from './registry.js';
 export * from './impact.js';
 export * from './mcp.js';
+export * from './findings-dedupe.js';
+export * from './area-coverage.js';

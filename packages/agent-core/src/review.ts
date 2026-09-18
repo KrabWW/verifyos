@@ -103,14 +103,26 @@ export function buildMrComment(input: {
   testRuns: TestRunRow[];
   gate: { decision: GateDecision; reason: string };
   evidenceBase?: string;
+  /** G1：非阻塞模式标注 + 分档计划（缺省按 blocking 处理，不破坏既有调用） */
+  opts?: { gateMode?: 'blocking' | 'reporting'; plan?: string };
 }): string {
-  const { prTitle, report, outcome, testRuns, gate, evidenceBase } = input;
+  const { prTitle, report, outcome, testRuns, gate, evidenceBase, opts } = input;
+  // G1：reporting=只评论不拦合并 → 头部「ℹ️ [非阻塞]」标注；gate 结果只影响文本
+  const reporting = opts?.gateMode === 'reporting';
   const e = verdictEmoji[outcome.verdict] ?? '';
   const lines: string[] = [];
 
-  lines.push(`## ${e} VerifyOS Review — ${gate.decision === 'block' ? '⛔ 阻止合并' : gate.decision === 'warn' ? '⚠️ 警告合并' : '✅ 可以合并'}`);
+  const gateLabel = gate.decision === 'block' ? '⛔ 阻止合并' : gate.decision === 'warn' ? '⚠️ 警告合并' : '✅ 可以合并';
+  lines.push(reporting
+    ? `## ℹ️ [非阻塞] ${e} VerifyOS Review — ${gateLabel}`
+    : `## ${e} VerifyOS Review — ${gateLabel}`);
   lines.push('');
-  lines.push(`**PR**: ${prTitle} · **verdict**: \`${outcome.verdict}\` · **耗时**: ${(outcome.durationMs / 1000).toFixed(1)}s · **LLM 调用**: ${outcome.llmCalls} 次`);
+  if (reporting) {
+    lines.push('> ℹ️ 非阻塞模式（reporting）：本审查只评论不拦截合并，门禁结果仅供参考。');
+    lines.push('');
+  }
+  const planLabel = opts?.plan === 'full' ? 'Full 全量回归档' : opts?.plan === 'smoke' ? 'PR Smoke 冒烟档' : undefined;
+  lines.push(`**PR**: ${prTitle} · **verdict**: \`${outcome.verdict}\` · **耗时**: ${(outcome.durationMs / 1000).toFixed(1)}s · **LLM 调用**: ${outcome.llmCalls} 次${planLabel ? ` · **计划**: ${planLabel}` : ''}`);
   lines.push('');
   lines.push('### SUMMARY');
   lines.push(report.summary);

@@ -46,3 +46,20 @@ export function VerdictIcon({ v, size = 12, strokeWidth }: { v?: string | null; 
     default: return <Circle {...common} />;
   }
 }
+
+// ---------- G2a：证据深链·hash 路由 ----------
+/** 解析 hash 深链：'#\/pr/<iid>' → PR 验证并选中该 MR；'#/runs/<runId>' → 执行页回放该 Run。
+ *  无法解析/无 hash 时两字段均为 null（调用方保持默认 route='run'）。 */
+export function parseDeepLinkHash(hash: string): { prIid: number | null; runId: string | null } {
+  const h = hash.startsWith('#') ? hash.slice(1) : hash;
+  const pr = /^\/pr\/(\d+)$/.exec(h);
+  if (pr) return { prIid: Number(pr[1]), runId: null };
+  const run = /^\/runs\/([A-Za-z0-9_-]+)$/.exec(h);
+  if (run) return { prIid: null, runId: run[1] };
+  return { prIid: null, runId: null };
+}
+
+/** G2a：hash 回写——history.replaceState 不产生历史记录；传 null 清空为 '/' */
+export function replaceHash(hash: string | null): void {
+  window.history.replaceState(null, '', hash ?? '/');
+}
