@@ -1,6 +1,6 @@
 # VerifyOS
 
-**AI-powered testing platform with verifiable evidence — self-hosted, LLM-driven, built with Chinese-language products in mind.**
+**Agentic UI testing & API testing platform with verifiable evidence — self-hosted, LLM-driven.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%E2%89%A520-blue)
@@ -9,11 +9,17 @@ English | [简体中文](README.zh-CN.md)
 
 VerifyOS turns LLM agents into QA engineers: they explore a running app, extract checkable QA points, execute verifications with full evidence chains (screenshots, video, network, console, trace), and gate pull requests with targeted regression. "Unverifiable" is a first-class outcome — never a false green.
 
-![VerifyOS execution reports](docs/design/view-report.png)
+![VerifyOS agentic exploration workbench](docs/design/explore-workbench.png)
+
+<p align="center">
+  <img src="docs/design/view-report.png" alt="api-test subsystem — execution reports" width="560">
+</p>
+
+<p align="center"><sub>The <code>api-test</code> subsystem — API execution reports with LLM-call &amp; evidence counters.</sub></p>
 
 ## ✨ Features
 
-- 🤖 **Agentic exploration** — crawler + QA-point extraction + safe AI mutation over a running app (Playwright-based, see `packages/agent-core`)
+- 🤖 **Agentic web-app exploration** — crawler + QA-point extraction + safe AI mutation, watched live in the exploration workbench (exploration path, Intent-Score ranking, live findings over WebSocket) — `packages/agent-core` + `apps/web`
 - ✅ **Evidence-backed verification** — per-step screenshots, video replay, network/console/trace panels; every result traceable: Run → verification → QA point → requirement
 - 🧠 **AI failure triage** — attribution with confidence, plus human classification on top
 - 🔀 **PR verification gate** — webhook pipeline: preview env → impact analysis → targeted regression → merge gate with report write-back

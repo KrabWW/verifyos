@@ -1,10 +1,16 @@
 # VerifyOS · 中文 AI 测试平台
 
-**LLM 智能体驱动的验证式测试平台——探索应用、沉淀 QA 点、带完整证据链执行验证、为 PR 把关；支持私有化部署。**
+**LLM 智能体驱动的 UI 测试 + API 测试平台——探索应用、沉淀 QA 点、带完整证据链执行验证、为 PR 把关；支持私有化部署。**
 
 [English](README.md) | 简体中文
 
-![执行报告](docs/design/view-report.png)
+![探索工作台](docs/design/explore-workbench.png)
+
+<p align="center">
+  <img src="docs/design/view-report.png" alt="api-test 子系统执行报告" width="560">
+</p>
+
+<p align="center"><sub><code>api-test</code> 子系统——API 执行报告（含 LLM 调用 / 证据计数）。</sub></p>
 
 ## ✨ 特性
 
