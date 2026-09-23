@@ -35,3 +35,9 @@ downloads/
 
 # === 符号链接（指向项目自身）===
 76d2ed6e27d2ffd06d321cacd4653f8c
+
+# === 开源仓库不跟踪的本地产物（截图/旧版本/异构锁文件；文件保留在本地）===
+/shots/
+/archive/
+/package-lock.json
+api-test/web/prototype-*-backup.html

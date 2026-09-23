@@ -2,7 +2,12 @@
   "name": "verifyos",
   "private": true,
   "version": "0.0.1",
-  "description": "VerifyOS · 中文 AI 测试平台（私有化部署）",
+  "description": "VerifyOS — AI-powered testing platform · 中文 AI 测试平台（私有化部署）",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KrabWW/verifyos.git"
+  },
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
