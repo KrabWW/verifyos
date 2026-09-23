@@ -16,6 +16,23 @@
 - 🔌 **任意 OpenAI 兼容 LLM**——智谱 GLM / DeepSeek / 自建网关；`api-test` 子系统无 Key 时自动降级内置 Mock
 - 🔐 **密钥只在本地**——凭据静态加密（`CREDENTIAL_ENCRYPTION_KEY`），可选 Langfuse 可观测
 
+## 🎬 演示
+
+**探索 → QA 点**——智能体浏览目标应用，沉淀 76 条带风险与置信度的 QA 点，验证仪表盘实时汇总（通过率 / 覆盖率 / 失败项）：
+
+![概览与 QA 点](docs/images/demo-overview-qa-points.gif)
+
+**验证·执行**——Stagehand × GLM 在真实浏览器里执行生成的步骤，带 Action Log 与证据面板：
+
+![验证执行](docs/images/demo-verification-run.gif)
+
+**PR 门禁与缺陷回写**——VerifyOS 审查合并请求、拦截未通过验证的 MR，并把结论回写到你的缺陷系统（GitLab MR 报告与禅道 Bug 历史，均为真实录制）：
+
+<p align="center">
+  <img src="docs/images/pr-gate-gitlab.png" alt="GitLab MR 审查报告" width="49%">
+  <img src="docs/images/bug-writeback-zentao.jpg" alt="禅道 Bug 历史中的 VerifyOS 机器人留言" width="49%">
+</p>
+
 ## 🏗 仓库结构
 
 | 路径 | 说明 |

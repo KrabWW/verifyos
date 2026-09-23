@@ -21,6 +21,23 @@ VerifyOS turns LLM agents into QA engineers: they explore a running app, extract
 - 🔌 **Any OpenAI-compatible LLM** — Zhipu GLM / DeepSeek / self-hosted gateways; the `api-test` subsystem degrades to a built-in mock provider without any key
 - 🔐 **Secrets stay local** — stored credentials encrypted at rest (`CREDENTIAL_ENCRYPTION_KEY`), optional Langfuse tracing
 
+## 🎬 Demo
+
+**Explore → QA points** — the agent browses the target app, surfaces 76 checkable QA points with risk & confidence, and keeps a live verification dashboard (pass rate, coverage, failures):
+
+![Exploration overview & QA points](docs/images/demo-overview-qa-points.gif)
+
+**Verification run** — Stagehand × GLM executes the generated steps in a real browser, with an action log and evidence panels:
+
+![Verification run](docs/images/demo-verification-run.gif)
+
+**PR gate & tracker write-back** — VerifyOS reviews merge requests, blocks merges that fail verification, and writes its conclusions back into your tracker (GitLab MR report & ZenTao bug history, real sessions):
+
+<p align="center">
+  <img src="docs/images/pr-gate-gitlab.png" alt="VerifyOS review on a GitLab merge request" width="49%">
+  <img src="docs/images/bug-writeback-zentao.jpg" alt="VerifyOS robot comments in ZenTao bug history" width="49%">
+</p>
+
 ## 🏗 Monorepo layout
 
 | Path | What it is |
