@@ -11,12 +11,6 @@ VerifyOS turns LLM agents into QA engineers: they explore a running app, extract
 
 ![VerifyOS agentic exploration workbench](docs/design/explore-workbench.png)
 
-<p align="center">
-  <img src="docs/design/view-report.png" alt="api-test subsystem — execution reports" width="560">
-</p>
-
-<p align="center"><sub>The <code>api-test</code> subsystem — API execution reports with LLM-call &amp; evidence counters.</sub></p>
-
 ## ✨ Features
 
 - 🤖 **Agentic web-app exploration** — crawler + QA-point extraction + safe AI mutation, watched live in the exploration workbench (exploration path, Intent-Score ranking, live findings over WebSocket) — `packages/agent-core` + `apps/web`

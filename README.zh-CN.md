@@ -6,12 +6,6 @@
 
 ![探索工作台](docs/design/explore-workbench.png)
 
-<p align="center">
-  <img src="docs/design/view-report.png" alt="api-test 子系统执行报告" width="560">
-</p>
-
-<p align="center"><sub><code>api-test</code> 子系统——API 执行报告（含 LLM 调用 / 证据计数）。</sub></p>
-
 ## ✨ 特性
 
 - 🤖 **智能体探索测试**——爬虫 + QA 点提取 + 安全 AI 变异（基于 Playwright，见 `packages/agent-core`）
